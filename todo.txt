@@ -1,0 +1,4 @@
+User Interface
+Complete overhaul of storing mangas in user_data.csv - store by index / key #, then print out english name or whatever when needed
+perhaps not using csvs at all ^^^
+Fuzzy matching / auto correct 

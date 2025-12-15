@@ -1,0 +1,1 @@
+https://www.kaggle.com/datasets/hamzaashfaque1999/myanimelist-scraped-data?resource=download&select=manga_entries.csv

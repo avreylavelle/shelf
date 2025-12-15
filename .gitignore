@@ -1,0 +1,14 @@
+venv/
+
+Dataset/*
+!Dataset/user_data.csv
+!Dataset/dataset.txt
+
+__pycache__/
+*.pyc
+
+.DS_Store
+Thumbs.db
+
+.vscode/
+.idea/
