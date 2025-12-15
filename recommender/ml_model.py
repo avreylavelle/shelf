@@ -1,8 +1,14 @@
 import os
 import joblib
 import pandas as pd
+import numpy as np
+
 from sklearn.ensemble import RandomForestRegressor
-from utils.cleaning import load_ml_featureset, user_ml_dataset
+from sklearn.feature_selection import mutual_info_regression
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+
+from utils.cleaning import load_ml_featureset, user_ml_dataset, DATASET_DIR
 
 MODEL_DIR = "Dataset/models"
 
@@ -54,3 +60,72 @@ def recommend_for_user(profile, top_n=20):
     results = unread.sort_values("predicted_rating", ascending=False)
 
     print(results.head(top_n))
+
+    return results
+
+def analyze_global_features():
+    df = load_ml_featureset()
+
+    df = df.dropna(subset=["score"])
+
+    y = df["score"]
+    X = df.drop(columns=["title_name", "score"], errors='ignore')
+
+    
+    results = {}
+
+    pearson = X.apply(lambda col: np.corrcoef(col, y)[0, 1])
+    results['pearson'] = pearson.sort_values(ascending=False)
+
+    mi = mutual_info_regression(X, y, random_state=42)
+    results['mutual_info'] = pd.Series(mi, index=X.columns).sort_values(ascending=False)
+
+    r2_scores = {}
+    reg = LinearRegression()
+
+    for col in X.columns:
+        Xi = X[[col]]
+        reg.fit(Xi, y)
+        y_pred = reg.predict(Xi)
+        r2 = r2_score(y, y_pred)
+        r2_scores[col] = r2
+
+    results["single_feature_r2"] = pd.Series(r2_scores).sort_values(ascending=False)
+
+    rf = RandomForestRegressor(n_estimators=250, random_state=42, n_jobs=-1)
+    rf.fit(X,y)
+    results["rf_importances"] = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=False)
+
+    results["variance"] = X.var().sort_values(ascending=False)
+
+    return results
+
+def analyze_user_features(profile):
+    username = profile["username"]
+    path = os.path.join(DATASET_DIR, f"user_data_ml_{username}.csv")
+
+    if not os.path.exists(path):
+        print(f"No user dataset found for {username}. Please generate the dataset first.")
+        return None
+    
+    print(f"Analyzing features for user {username}...")
+
+    df = pd.read_csv(path)
+
+    y = df["rating"]
+    X = df.drop(columns=["title_name", "rating"], errors='ignore')
+
+    results = {}
+
+    pearson = X.apply(lambda col: np.corrcoef(col, y)[0, 1])
+    results['pearson'] = pearson.sort_values(ascending=False)
+
+    mi = mutual_info_regression(X, y, random_state=42)
+    results['mutual_info'] = pd.Series(mi, index=X.columns).sort_values(ascending=False)
+
+    rf = RandomForestRegressor(n_estimators=250, random_state=42, n_jobs=-1)
+    rf.fit(X, y)
+    results["rf_importances"] = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=False)
+
+    print("Feature analysis complete.")
+    return results
