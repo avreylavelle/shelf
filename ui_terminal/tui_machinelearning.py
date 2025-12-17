@@ -33,6 +33,9 @@ def ui_machine_learning(profile):
             print("\nTop 20 RF Importances:")
             print(results["rf_importances"].head(20))
 
+            print("\nTop 20 Single Feature R2 Scores:")
+            print(results["single_feature_r2"].head(20))
+
         elif choice == "4":
             print("Analyzing Your Features...")
             results = analyze_user_features(profile)
@@ -48,7 +51,7 @@ def ui_machine_learning(profile):
 
             print("\nTop 20 User RF Importances:")
             print(results["rf_importances"].head(20))
-
+            
         elif choice == "5":
             print("Exiting Machine Learning Menu.")
             break

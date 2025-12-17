@@ -5,8 +5,10 @@ import numpy as np
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.feature_selection import mutual_info_regression
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.metrics import r2_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
 
 from utils.cleaning import load_ml_featureset, user_ml_dataset, DATASET_DIR
 
@@ -68,7 +70,7 @@ def analyze_global_features():
 
     df = df.dropna(subset=["score"])
 
-    y = df["score"]
+    y = df["score"].astype(float)
     X = df.drop(columns=["title_name", "score"], errors='ignore')
 
     

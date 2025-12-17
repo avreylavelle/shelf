@@ -158,6 +158,10 @@ def user_ml_dataset(profile):
     rows = []
 
     for manga, rating in read_manga.items():
+
+        if rating is None:
+            continue
+        
         matches = ml_dataset[ml_dataset["title_name"] == manga]
 
         if matches.empty:
