@@ -1,28 +1,24 @@
 # Manga Recommender System (Content Based and Personalized ML)
 
-This content based manga recommednation system was made with the intent to... Recommend manga. 
-There are not many great manga recommenders out there, especially due to the nature of how these mangas are categorized. A very common example are using the genres "Action", "Adventure", "Fantasy", and so on. These genres apply to a lare quantity of mangas, and in no way dictate the actual quality, tone, feel, or how enjoyable a read it will be. 
+## Overview 
 
-Due to these limitations, I (We, this started as a group project and quickly became an indiviual passion project) decided that it would be best to try to find what features would be the best to automatically rank and recommend mangas on a per user basis. 
+This project implements a content-based manga recommendation system that personalizes rankings using metadata-driven signals and lightweight machine learning. Unlike collaborative filtering approaches, this system operates without a large user base, supports cold-start users, and emphasizes interpretability over black-box models.
 
-This code combines explicit user preferences, interperatable heurisitcs, and lighteight machine learning to personalize recommendations, without relying on large scale user behavior or any major black box models. 
-
-This project is intended to explore how far content and metadata alone can go in the journey of recommending quality manga consistently, adapting overtime to reader tatse, and where its inevitable limitations stop it.
+The recommender combines explicit user preferences, heuristic scoring, and per-user machine learning to adapt recommendations over time using content and metadata alone.
 
 ## Project Goals
- - Build a manga recommender that is not reliant on a massive user base
- - Support cold start users (Me, funnily enough I do not read very much)
- - Learn personalized preferecnes weights on a per user basis
- - Maintain its interpretability and explainaibitly, as to not become too complex
- - Explore limits
-
-As mentioned before, this is a passion project. Simply for fun!
+ - Operate without large-scale user behavior data
+ - Support cold-start users
+ - Learn per-user preference weights
+ - Maintain interpretability and explainability
+ - Explore the practical limits of content-based recommendation
 
 ## Core Ideas
 
 ### 1. Content Based Recommendation
 
 Recommendations are driven by manga metadata from a MyAnimeList dataset, such as:
+
  - Genres
  - Themes
  - Demographics
@@ -31,21 +27,18 @@ Recommendations are driven by manga metadata from a MyAnimeList dataset, such as
 
 ### 2. Handwritten Heuristic Baseline
 
-The first part of this project, and what essentially was the focus of the Final Project aspect for my school project was this:
-
 A deterministic recommender scores manga using:
+
  - Genre overlap
  - Theme overlap
  - User history affinity
  - Rated title similarity
 
-This baseline works very well for a cold start, when a user knows exactly what type of genres, or general vibe they are looking for. Using my roommate as a test dummy, (he reads a lot), It actually spit out some quality recommendations and was a driving force for the "passion" part of this project. It could always be better!
+This baseline provides strong cold-start performance and serves as a fallback when insufficient user data is available.
 
 ### 3. Machine Learning as Weight learner
 
-The basis of this recommendation system is defined by a few weights, found in the recommender/constants.py file. These were handmade through talk with my groupmates and roommate.
-
-Instead of replacing the core logic, I thought that using Machine Learning on user datasets to learn how much each signal matters per user, whether that be on a broad "genre" or "theme", or perhaps choosing specific themes and genres that are actually important to the model in its accuracy in determining manga scores.
+Rather than replacing the scoring logic, machine learning is used to learn how much each signal matters per user.
 
  - Signals are explicitly defined (From the MAL dataset)
  - Model learns weights, not the overarching structure
@@ -97,12 +90,7 @@ I can see a few things happening with this model in the end
  - No embeddings or deep learning
  - Metadata **CANNOT** capture tone, quality, or emotional impact
 
-Due to this, the current implementation cannot succeed the way I hope. A few ways to counteract this are perhaps:
- - Weighting with global ranks weighted as well, to generally recommend higher quality mangas
- - Recommending based on other users ratings (This requires a large userbase)
-  - Perhaps, using global user data from larger websites
-
-Overall, this project is research into how well content alone can succeed. 
+This project intentionally explores how far content-only recommendation can go, and where it breaks down.
 
 ## Project Structure
 
