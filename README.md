@@ -1,15 +1,15 @@
-# Manga Recommender System (Content Based and Personalized ML)
+# Manga Recommender System (Content Based)
 
 ## Overview 
 
-This project implements a content-based manga recommendation system that personalizes rankings using metadata-driven signals and lightweight machine learning. Unlike collaborative filtering approaches, this system operates without a large user base, supports cold-start users, and emphasizes interpretability over black-box models.
+This project implements a content-based manga recommendation system that personalizes rankings using metadata-driven signals. Unlike collaborative filtering approaches, this system operates without a large user base, supports cold-start users, and emphasizes interpretability over black-box models.
 
-The recommender combines explicit user preferences, heuristic scoring, and per-user machine learning to adapt recommendations over time using content and metadata alone.
+The recommender combines explicit user preferences and heuristic scoring to adapt recommendations over time using content and metadata alone. Storage is SQLite-based, and all data access is routed through a repository interface.
 
 ## Project Goals
  - Operate without large-scale user behavior data
  - Support cold-start users
- - Learn per-user preference weights
+ - Track per-user preference signals
  - Maintain interpretability and explainability
  - Explore the practical limits of content-based recommendation
 
@@ -36,19 +36,11 @@ A deterministic recommender scores manga using:
 
 This baseline provides strong cold-start performance and serves as a fallback when insufficient user data is available.
 
-### 3. Machine Learning as Weight learner
-
-Rather than replacing the scoring logic, machine learning is used to learn how much each signal matters per user.
-
- - Signals are explicitly defined (From the MAL dataset)
- - Model learns weights, not the overarching structure
- - Models are trained per user, not per dataset
- - Fallback to the heuristic with data is insufficient
- - 
 ## System Architecture
 
-The overall system architecutre is hoped to be followed as such:
-Profile -> Signal Extraction -> Learn weights -> Final Ranking -> Recommend / explain (if requested)
+The overall system architecture is:
+UI -> Services -> Repository -> SQLite
+Profile -> Signal Extraction -> Final Ranking -> Recommend
 
 ## Signals Used:
 
@@ -63,24 +55,8 @@ Signals intended for use:
  - Demographic match
  - Global feature quality score
 
-These signals should be sufficient training inputs for the model.
+These signals are combined deterministically in the scoring logic.
 
-### Machine Learning Models:
-
-As mentioned before, this is is intended on a per user basis. Therefore, using simple, stable, quick models is the intent.
-
-Ridge Regression
- - Should learn stable per user weights
- - Handles correlated signals well
-Lasso Regression
- - Identifies the overall importance of signals
- - Enables feature pruning
-Random Forest
- - Used for feature important analysis
-
-## Feature Analysis
-
-The system supports Global feature analysis, per user feature analysis, and many others to be added later. This is simply for analysis and research.
 
 ## Limitations
 
@@ -97,15 +73,23 @@ This project intentionally explores how far content-only recommendation can go, 
 manga_recommender_ml/
   Dataset/
     dataset.txt
-    user_data.csv
+    manga.db
   recommender/
     constants.py
     filtering.py
-    ml_model.py
     recommender.py
     scoring.py
+  core/
+    recommendations.py
+  data/
+    repository.py
+    sqlite_repository.py
+    get_repo.py
+    schema.sql
+  services/
+    library.py
+    recommendations.py
   ui_terminal/
-    tui_machinelearning.py
     tui_menu.py
     tui_profile.py
     tui_recommend.py
@@ -141,4 +125,4 @@ manga_recommender_ml/
 
 ### As of right now, it is as follows:
 
-The user can create and then sign into a profile, recommend themselves manga, and rate manga. The machine learning menu is also available.
+The user can create and then sign into a profile, recommend themselves manga, and rate manga.

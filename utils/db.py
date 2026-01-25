@@ -1,0 +1,38 @@
+import os
+import sqlite3
+
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(THIS_DIR)
+DATASET_DIR = os.path.join(BASE_DIR, "Dataset")
+DB_PATH = os.path.join(DATASET_DIR, "manga.db")
+
+
+def get_connection():
+    os.makedirs(DATASET_DIR, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def table_exists(conn, table_name: str) -> bool:
+    cur = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1",
+        (table_name,),
+    )
+    return cur.fetchone() is not None
+
+
+def ensure_users_table(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS users (
+            username TEXT PRIMARY KEY,
+            age INTEGER,
+            gender TEXT,
+            preferred_genres TEXT,
+            preferred_themes TEXT,
+            read_manga TEXT
+        )
+        """
+    )
+    conn.commit()

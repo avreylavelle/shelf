@@ -1,5 +1,5 @@
 *
 !.gitignore
-!user_data.csv
 !dataset.txt
+!manga.db
 !__init__.py

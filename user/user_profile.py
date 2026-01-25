@@ -1,6 +1,6 @@
 from difflib import get_close_matches
 from utils.parsing import parse_dict
-from utils.cleaning import USER_PATH
+from utils.db import get_connection, ensure_users_table
 import pandas as pd
 
 # Taking in the database and username, determine if the profile exists.
@@ -22,7 +22,7 @@ def get_profile(user_df, username):
     } 
 
 # Removes old entries and updates with new entries
-def update_user_profile(user_df, profile, user_path = USER_PATH):
+def update_user_profile(user_df, profile):
     username = profile["username"]
 
     # Remove the previous profile
@@ -37,9 +37,28 @@ def update_user_profile(user_df, profile, user_path = USER_PATH):
         "read_manga": str(profile.get("read_manga", {})),
     }
 
-    # concat the new_row into the df, then put it to csv
+    # concat the new_row into the df, then persist to sqlite
     user_df = pd.concat([user_df, pd.DataFrame([new_row])], ignore_index=True)
-    user_df.to_csv(user_path, index=False)
+
+    # Persist to sqlite (source of truth)
+    with get_connection() as conn:
+        ensure_users_table(conn)
+        conn.execute("DELETE FROM users WHERE username = ?", (username,))
+        conn.execute(
+            """
+            INSERT INTO users (username, age, gender, preferred_genres, preferred_themes, read_manga)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                new_row["username"],
+                new_row["age"],
+                new_row["gender"],
+                new_row["preferred_genres"],
+                new_row["preferred_themes"],
+                new_row["read_manga"],
+            ),
+        )
+        conn.commit()
     return user_df
 
 # Found this online for a username recommender, if its close but not quite
