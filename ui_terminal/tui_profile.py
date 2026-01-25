@@ -1,5 +1,5 @@
 from utils.input import input_nonempty
-from services.library import search_manga
+from services.library import search_manga, add_rating, remove_rating, list_ratings
 
 # ui_edit_profile
 def edit_profile(profile, manga_df):
@@ -62,7 +62,8 @@ def edit_profile(profile, manga_df):
 def ui_adjust_manga_entries(profile, manga_df):
     
     print("\n=== Read Manga ===")
-    for i, (title, rating) in enumerate(profile["read_manga"].items(), start=1):
+    ratings = dict(list_ratings(profile["username"]))
+    for i, (title, rating) in enumerate(ratings.items(), start=1):
         print(f"{i}:  {title}: {rating}")
 
     while True:
@@ -79,10 +80,11 @@ def ui_adjust_manga_entries(profile, manga_df):
         # remove a manga (not needed?)
         elif ch == "2":
             title = input_nonempty("Title to remove: ")
-            profile["read_manga"].pop(title, None)
+            remove_rating(profile["username"], title)
 
         elif ch == "3":
-            sort_read_manga_list(profile)
+            ratings = dict(list_ratings(profile["username"]))
+            sort_read_manga_list(ratings)
 
         elif ch == "4":
             break
@@ -164,20 +166,21 @@ def add_manga_rating(profile):
                     continue
                     
         t=""
-        prev_rating = profile["read_manga"].get(chosen_title, None)
+        current_ratings = dict(list_ratings(profile["username"]))
+        prev_rating = current_ratings.get(chosen_title, None)
         if prev_rating is not None:
             print(f"This title exists. Rating: {prev_rating}")
             t = "Update "
         rating = input(f"{t}Rating (0-10): ").strip() # rating
         if rating:
             try:
-                profile["read_manga"][chosen_title] = float(rating) # input entry
+                add_rating(profile["username"], chosen_title, float(rating))
             except:
                 print("Invalid rating.")
         else:
-            profile["read_manga"][chosen_title] = None # no rating
+            add_rating(profile["username"], chosen_title, None)
 
-def sort_read_manga_list(profile):
+def sort_read_manga_list(ratings):
     while True:
         print("\nSort by:")
         print("1. Alphabetical (A->Z)")
@@ -186,7 +189,7 @@ def sort_read_manga_list(profile):
         print("4. Return")
 
         sort_choice = input("Choice: ")
-        items = list(profile["read_manga"].items())
+        items = list(ratings.items())
 
         if sort_choice == "1":
             # Alphabetical
@@ -210,7 +213,7 @@ def sort_read_manga_list(profile):
 
             sorted_items = []
             for rating_value, title in sorted_pairs:
-                sorted_items.append((title, profile["read_manga"][title]))
+                sorted_items.append((title, ratings[title]))
 
             break
 

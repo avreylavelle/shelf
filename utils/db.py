@@ -30,8 +30,23 @@ def ensure_users_table(conn):
             age INTEGER,
             gender TEXT,
             preferred_genres TEXT,
-            preferred_themes TEXT,
-            read_manga TEXT
+            preferred_themes TEXT
+        )
+        """
+    )
+    conn.commit()
+
+
+def ensure_user_ratings_table(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS user_ratings (
+            user_id TEXT NOT NULL,
+            manga_id TEXT NOT NULL,
+            rating REAL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, manga_id),
+            FOREIGN KEY (user_id) REFERENCES users(username)
         )
         """
     )
