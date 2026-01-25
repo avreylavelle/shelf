@@ -24,9 +24,8 @@ def parse_lists(df):
 
     return df
 
-def filter_already_read(df, profile):
+def filter_already_read(df, read_manga):
     # Exclude the already read titles
-    read_manga = profile.get("read_manga", {})
     df = df[~df["title_name"].isin(read_manga.keys())]
 
     return df
@@ -54,14 +53,14 @@ def filter_item_type():
     # Doujinshi,  Light Novel,  Manga,  Manhua,  Manhwa,  Novel,  One-shot
     pass
 
-def run_filters(manga_df, profile):
+def run_filters(manga_df, profile, read_manga):
     """Apply all filtering steps."""
 
     df = manga_df.copy()
 
     df = filter_nsfw(df, profile)
     df = parse_lists(df)
-    df = filter_already_read(df, profile)
+    df = filter_already_read(df, read_manga)
     df = publish_date_filter(df)
 
     return df

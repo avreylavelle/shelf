@@ -11,14 +11,12 @@ def get_profile(user_df, username):
         return None # return if blank
     
     row = row.iloc[0]
-
     return { # return all values for the username, for the profile
         "username": row["username"],
         "age": None if pd.isna(row["age"]) else int(row["age"]),
         "gender": row["gender"] if isinstance(row["gender"], str) else "",
         "preferred_genres": parse_dict(row["preferred_genres"]),
         "preferred_themes": parse_dict(row["preferred_themes"]),
-        "read_manga": parse_dict(row["read_manga"]),
     } 
 
 # Removes old entries and updates with new entries
@@ -34,7 +32,6 @@ def update_user_profile(user_df, profile):
         "gender": profile.get("gender", ""),
         "preferred_genres": str(profile.get("preferred_genres", {})),
         "preferred_themes": str(profile.get("preferred_themes", {})),
-        "read_manga": str(profile.get("read_manga", {})),
     }
 
     # concat the new_row into the df, then persist to sqlite
@@ -46,8 +43,8 @@ def update_user_profile(user_df, profile):
         conn.execute("DELETE FROM users WHERE username = ?", (username,))
         conn.execute(
             """
-            INSERT INTO users (username, age, gender, preferred_genres, preferred_themes, read_manga)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO users (username, age, gender, preferred_genres, preferred_themes)
+            VALUES (?, ?, ?, ?, ?)
             """,
             (
                 new_row["username"],
@@ -55,7 +52,6 @@ def update_user_profile(user_df, profile):
                 new_row["gender"],
                 new_row["preferred_genres"],
                 new_row["preferred_themes"],
-                new_row["read_manga"],
             ),
         )
         conn.commit()

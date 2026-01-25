@@ -21,7 +21,6 @@ class Repository(ABC):
         gender: str = "",
         preferred_genres: Optional[Dict[str, Any]] = None,
         preferred_themes: Optional[Dict[str, Any]] = None,
-        read_manga: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         raise NotImplementedError
 

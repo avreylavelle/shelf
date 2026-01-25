@@ -6,7 +6,13 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from data.repository import Repository
-from utils.db import DB_PATH, ensure_users_table, get_connection, table_exists
+from utils.db import (
+    DB_PATH,
+    ensure_users_table,
+    ensure_user_ratings_table,
+    get_connection,
+    table_exists,
+)
 from utils.parsing import parse_dict
 
 
@@ -16,19 +22,8 @@ class SqliteRepository(Repository):
         self._manga_cache = None
 
     def _ensure_user_ratings_table(self, conn):
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS user_ratings (
-                user_id TEXT NOT NULL,
-                manga_id TEXT NOT NULL,
-                rating REAL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (user_id, manga_id),
-                FOREIGN KEY (user_id) REFERENCES users(username)
-            )
-            """
-        )
-        conn.commit()
+        ensure_user_ratings_table(conn)
+
 
     def get_all_users(self) -> pd.DataFrame:
         with get_connection() as conn:
@@ -42,12 +37,12 @@ class SqliteRepository(Repository):
             "gender": row["gender"] if isinstance(row["gender"], str) else "",
             "preferred_genres": parse_dict(row["preferred_genres"]),
             "preferred_themes": parse_dict(row["preferred_themes"]),
-            "read_manga": parse_dict(row["read_manga"]),
         }
 
     def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         with get_connection() as conn:
             ensure_users_table(conn)
+            self._ensure_user_ratings_table(conn)
             cur = conn.execute(
                 "SELECT * FROM users WHERE username = ?",
                 (username,),
@@ -64,7 +59,6 @@ class SqliteRepository(Repository):
         gender: str = "",
         preferred_genres: Optional[Dict[str, Any]] = None,
         preferred_themes: Optional[Dict[str, Any]] = None,
-        read_manga: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         profile = {
             "username": username,
@@ -72,7 +66,6 @@ class SqliteRepository(Repository):
             "gender": gender or "",
             "preferred_genres": preferred_genres or {},
             "preferred_themes": preferred_themes or {},
-            "read_manga": read_manga or {},
         }
         self._save_profile(profile)
         return profile
@@ -84,8 +77,8 @@ class SqliteRepository(Repository):
             conn.execute("DELETE FROM users WHERE username = ?", (profile["username"],))
             conn.execute(
                 """
-                INSERT INTO users (username, age, gender, preferred_genres, preferred_themes, read_manga)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO users (username, age, gender, preferred_genres, preferred_themes)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
                     profile["username"],
@@ -93,26 +86,10 @@ class SqliteRepository(Repository):
                     profile.get("gender", ""),
                     str(profile.get("preferred_genres", {})),
                     str(profile.get("preferred_themes", {})),
-                    str(profile.get("read_manga", {})),
                 ),
             )
             conn.commit()
 
-            # Mirror read_manga dict into user_ratings for normalized access
-            read_manga = profile.get("read_manga", {})
-            conn.execute(
-                "DELETE FROM user_ratings WHERE user_id = ?",
-                (profile["username"],),
-            )
-            for manga_id, rating in read_manga.items():
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO user_ratings (user_id, manga_id, rating)
-                    VALUES (?, ?, ?)
-                    """,
-                    (profile["username"], manga_id, rating),
-                )
-            conn.commit()
 
     def get_manga_by_id(self, manga_id: str) -> Optional[Dict[str, Any]]:
         with get_connection() as conn:
@@ -198,43 +175,23 @@ class SqliteRepository(Repository):
             "title_lookup": title_lookup,
         }
 
+    def _get_user_ratings_map(
+        self, user_id: str, conn: sqlite3.Connection
+    ) -> Dict[str, Any]:
+        cur = conn.execute(
+            "SELECT manga_id, rating FROM user_ratings WHERE user_id = ?",
+            (user_id,),
+        )
+        rows = cur.fetchall()
+        if rows:
+            return {row[0]: row[1] for row in rows}
+        return {}
+
     def get_user_ratings(self, user_id: str) -> List[Tuple[str, Any]]:
         with get_connection() as conn:
             ensure_users_table(conn)
             self._ensure_user_ratings_table(conn)
-            cur = conn.execute(
-                "SELECT manga_id, rating FROM user_ratings WHERE user_id = ?",
-                (user_id,),
-            )
-            rows = cur.fetchall()
-            if rows:
-                return [(row[0], row[1]) for row in rows]
-
-            # Backfill from users.read_manga if present
-            cur = conn.execute(
-                "SELECT read_manga FROM users WHERE username = ?",
-                (user_id,),
-            )
-            row = cur.fetchone()
-            if row is None:
-                return []
-            read_manga = parse_dict(row[0])
-            if not read_manga:
-                return []
-            conn.execute(
-                "DELETE FROM user_ratings WHERE user_id = ?",
-                (user_id,),
-            )
-            for manga_id, rating in read_manga.items():
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO user_ratings (user_id, manga_id, rating)
-                    VALUES (?, ?, ?)
-                    """,
-                    (user_id, manga_id, rating),
-                )
-            conn.commit()
-            return list(read_manga.items())
+            return list(self._get_user_ratings_map(user_id, conn).items())
 
     def upsert_rating(
         self, user_id: str, manga_id: str, rating: Any
@@ -253,8 +210,6 @@ class SqliteRepository(Repository):
                 (user_id, manga_id, rating),
             )
             conn.commit()
-        profile["read_manga"][manga_id] = rating
-        self._save_profile(profile)
         return profile
 
     def delete_rating(self, user_id: str, manga_id: str) -> Optional[Dict[str, Any]]:
@@ -269,6 +224,4 @@ class SqliteRepository(Repository):
                 (user_id, manga_id),
             )
             conn.commit()
-        profile["read_manga"].pop(manga_id, None)
-        self._save_profile(profile)
         return profile

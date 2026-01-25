@@ -9,11 +9,13 @@ def get_recommendations(user_id, current_genres, current_themes, k=20, lang="en"
     if profile is None:
         return None, False
 
+    read_manga = dict(repo.get_user_ratings(user_id))
     ranked, used_current = score_recommendations(
         manga_df,
         profile,
         current_genres,
         current_themes,
+        read_manga,
         top_n=k,
     )
     return ranked, used_current

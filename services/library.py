@@ -27,7 +27,6 @@ def save_user_profile(user_df, profile):
         gender=profile.get("gender", ""),
         preferred_genres=profile.get("preferred_genres", {}),
         preferred_themes=profile.get("preferred_themes", {}),
-        read_manga=profile.get("read_manga", {}),
     )
     return get_repo().get_all_users()
 

@@ -4,8 +4,7 @@ CREATE TABLE IF NOT EXISTS users (
     age INTEGER,
     gender TEXT,
     preferred_genres TEXT,
-    preferred_themes TEXT,
-    read_manga TEXT
+    preferred_themes TEXT
 );
 
 CREATE TABLE IF NOT EXISTS user_ratings (

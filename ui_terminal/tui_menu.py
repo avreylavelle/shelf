@@ -127,7 +127,6 @@ def create_profile(user_df, default_username=None):
         "gender": gender,
         "preferred_genres": {},
         "preferred_themes": {},
-        "read_manga": {},
     }
 
     # Create the new profile

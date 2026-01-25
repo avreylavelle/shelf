@@ -99,7 +99,7 @@ def combine_scores(match_score, internal_score):
     else:
         return match_score
 
-def score_and_rank(filtered_df, manga_df, profile, current_genres, current_themes, top_n=20):
+def score_and_rank(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20):
     df = filtered_df.copy()
     used_current = False
 
@@ -115,7 +115,6 @@ def score_and_rank(filtered_df, manga_df, profile, current_genres, current_theme
     total_hist_genres = sum(hist_genres.values()) or 1
     total_hist_themes = sum(hist_themes.values()) or 1
 
-    read_manga = profile.get("read_manga", {})
     genre_affinity, theme_affinity = compute_rating_affinities(manga_df, read_manga)
 
     match_scores = []
