@@ -1,9 +1,13 @@
-from utils.cleaning import load_data, load_user
 from utils.input import input_nonempty
-from user.user_profile import get_profile, similar_username, update_user_profile
+from services.library import (
+    load_manga_dataset,
+    load_user_index,
+    get_profile,
+    similar_username,
+    save_user_profile,
+)
 from ui_terminal.tui_recommend import ui_recommend
 from ui_terminal.tui_profile import edit_profile
-from ui_terminal.tui_machinelearning import ui_machine_learning
 
 # Main loop for everything
 def ui_sign_in(manga_df, user_df):
@@ -53,24 +57,19 @@ def sign_in_loop(manga_df, user_df, profile):
         print(f"Welcome back, {username}.")
         print("1. Edit your profile?")
         print("2. Proceed to Recommender")
-        print("3. Machine Learning Menu (dev only)")
-        print("4. Sign out")
+        print("3. Sign out")
 
         choice = input("Choice: ").strip()
 
         if choice == "1":
             profile = edit_profile(profile, manga_df)
-            user_df = update_user_profile(user_df, profile)
+            user_df = save_user_profile(user_df, profile)
             print("Profile updated.")
 
         elif choice == "2":
             user_df, profile, _ = ui_recommend(manga_df, user_df, profile)
 
         elif choice == "3":
-            print(f"Signing in to ML menu for {username}.")
-            ui_machine_learning(profile)
-
-        elif choice == "4":
             print(f"Signing out {username}.")
             return user_df
 
@@ -132,15 +131,15 @@ def create_profile(user_df, default_username=None):
     }
 
     # Create the new profile
-    user_df = update_user_profile(user_df, profile)
+    user_df = save_user_profile(user_df, profile)
     print("Profile created.")
     return user_df, profile
 
 def main_menu():
     print("=== Manga Recommender ===")
 
-    manga = load_data()
-    users = load_user()
+    manga = load_manga_dataset()
+    users = load_user_index()
 
     while True:
         print("\nMain Menu:")

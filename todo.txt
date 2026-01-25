@@ -1,4 +1,4 @@
 User Interface
-Complete overhaul of storing mangas in user_data.csv - store by index / key #, then print out english name or whatever when needed
-perhaps not using csvs at all ^^^
+Complete overhaul of storing mangas in user data - store by index / key #, then print out english name or whatever when needed
+No CSV storage remains; keep SQLite schema aligned with this goal
 Fuzzy matching / auto correct 

@@ -17,7 +17,7 @@ def parse_list(val):
         return val
     return []
 
-# Here I am deciding to use dicts within the csv to store user data
+# Here I am deciding to use dicts serialized as strings to store user data
 # However, its a bit tricky since dicts dont store super easily, so I need to parse them properly
 # I could use other methods that would probably be easier, but im trying to keep it consistent
 def parse_dict(val):

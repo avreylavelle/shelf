@@ -1,5 +1,5 @@
 from utils.input import input_nonempty
-from difflib import get_close_matches
+from services.library import search_manga
 
 # ui_edit_profile
 def edit_profile(profile, manga_df):
@@ -61,10 +61,6 @@ def edit_profile(profile, manga_df):
 # ui_adjust_manga_entires
 def ui_adjust_manga_entries(profile, manga_df):
     
-    df = manga_df.copy() # gonna be altered, messed up the cleaned dataset if you dont makea  copy
-    all_titles = df["title_name"].astype(str).tolist()
-    title_lookup = {t.lower(): t for t in all_titles} # lookupw with lower and names (keys are the real names)
-    
     print("\n=== Read Manga ===")
     for i, (title, rating) in enumerate(profile["read_manga"].items(), start=1):
         print(f"{i}:  {title}: {rating}")
@@ -79,7 +75,7 @@ def ui_adjust_manga_entries(profile, manga_df):
         ch = input("Choice: ").strip()
         # add and rate a manga
         if ch == "1":
-            add_manga_rating(profile, df, title_lookup)
+            add_manga_rating(profile)
         # remove a manga (not needed?)
         elif ch == "2":
             title = input_nonempty("Title to remove: ")
@@ -94,52 +90,26 @@ def ui_adjust_manga_entries(profile, manga_df):
         else:
             print("Invalid Choice.")
         
-def add_manga_rating(profile, df, title_lookup):
+def add_manga_rating(profile):
     while True:
         chosen_title = ""
         requested_title = input_nonempty("-------------------" \
         "\nTitle (exit to exit): ").strip() # request title
         if requested_title == "exit": # if user says exit, exit
             break
-        requested_lower = requested_title.lower() # make lower (for matching
+
+        search = search_manga(requested_title, limit=10)
+        title_lookup = search["title_lookup"]
+        substring_match = search["substring"]
+        suggestions = search["fuzzy"]
 
         # NEED TO ADD
         # USE SYNONYMS IN THIS SECTION
         # NEED TO ADD
 
-
-        if requested_lower in title_lookup: # matching
-            chosen_title = title_lookup[requested_lower] # matches, move on
+        if search["exact"]:
+            chosen_title = search["exact"]
         else:
-            # checks if the substring entered is in the name (these names are fucking massive)
-            substring_match = []
-
-            # goes through names, if its in any name, add it (some entries are in here multiple times?)
-            import string
-            for title_name in title_lookup.keys():
-                translator = str.maketrans({p: " " for p in string.punctuation})
-                translated_title_name = title_name.translate(translator)
-                if "darling" in translated_title_name.lower() and "dress" in translated_title_name.lower(): print(title_name.lower()) 
-                if requested_lower in translated_title_name.lower():
-                    substring_match.append(title_name)
-
-            # ADDED after the fact, sorts names by internal rating ( most popular first )   
-            temp = []
-            for name in substring_match:
-                real_title = title_lookup[name]
-                try: 
-                    score = float(df.loc[df["title_name"] == real_title, "score"].fillna(0).iloc[0]) # gets score for name
-                except:
-                    score = 0.0
-
-                temp.append((score, name))
-
-            temp.sort(reverse=True)
-
-            substring_match = []
-            for score, name in temp:
-                substring_match.append(name)
-
             # if you get one
             if substring_match:
                 print(f"Did you mean:") # print them all
@@ -161,21 +131,6 @@ def add_manga_rating(profile, df, title_lookup):
             
             # if no direct match
             if not chosen_title:
-                suggestions = get_close_matches(requested_lower, list(title_lookup.keys()), n=10, cutoff=0.1) # gather suggestions
-                for name in suggestions:
-                    real_title = title_lookup[name]
-                    try: 
-                        score = float(df.loc[df["title_name"] == real_title, "score"].fillna(0).iloc[0]) # gets score for name
-                    except:
-                        score = 0.0
-
-                    temp.append((score, name))
-
-                temp.sort(reverse=True)
-                suggestions = []
-                for score, name in temp:
-                    suggestions.append(name)
-                    
                 if suggestions: # if they were generated
                     cont_print = True
                     print("Did you mean:") # recommend

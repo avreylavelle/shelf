@@ -1,6 +1,6 @@
 from utils.lookup import pick_top_from_counts, get_all_unique
-from user.user_profile import update_user_profile
-from recommender.recommender import recommendation_scores
+from services.library import save_user_profile
+from services.recommendations import get_recommendations
 
 # ui_collect_current_prefrences
 def ui_collect_current_preferences(profile, manga_df):
@@ -49,15 +49,18 @@ def ui_recommend(manga_df, user_df, profile):
     current_genres, current_themes = ui_collect_current_preferences(profile, manga_df) # gather pervious preferences
 
     # Update running weights
-    user_df = update_user_profile(user_df, profile)
+    user_df = save_user_profile(user_df, profile)
 
     # sanity print
     print("\nRecommending...")
 
     # find recommendations based on all data
-    ranked, used_current = recommendation_scores(
-        manga_df, profile, current_genres, current_themes, top_n=20
+    ranked, used_current = get_recommendations(
+        profile["username"], current_genres, current_themes, k=20
     )
+    if ranked is None:
+        print("No user profile found.")
+        return user_df, profile, ranked
 
     # printing
     print("\n=== Recommendations ===")
