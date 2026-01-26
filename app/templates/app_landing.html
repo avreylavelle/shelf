@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shelf · Manga Recommender</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <h1>Shelf: Manga Recommender</h1>
+        <p>Rate manga, track history, and get personalized recommendations.</p>
+      </header>
+
+      <section class="card">
+        <h2>Get Started</h2>
+        <p class="muted">Log in to manage your profile, ratings, and recommendations.</p>
+        <a class="cta" href="{{ base_path }}/login">Go to Login</a>
+      </section>
+    </main>
+  </body>
+</html>
