@@ -9,6 +9,12 @@ function setStatus(text, isError = false) {
   statusEl.className = isError ? "status error" : "status";
 }
 
+
+function handleEnter(event) {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  login().catch((e) => setStatus(e.message, true));
+}
 async function login() {
   const username = usernameEl.value.trim();
   const password = passwordEl.value;
@@ -27,9 +33,12 @@ async function register() {
     method: "POST",
     body: JSON.stringify({ username, password }),
   });
-  setStatus(`Registered ${data.user.username}`);
-  window.location.href = `${BASE_PATH}/dashboard`;
+  setStatus(`Registered ${data.user.username}. Please log in.`);
+  passwordEl.value = "";
 }
 
 loginBtn.addEventListener("click", () => login().catch((e) => setStatus(e.message, true)));
 registerBtn.addEventListener("click", () => register().catch((e) => setStatus(e.message, true)));
+
+usernameEl.addEventListener("keydown", handleEnter);
+passwordEl.addEventListener("keydown", handleEnter);

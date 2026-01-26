@@ -6,6 +6,7 @@ from app.repos import users as users_repo
 def register(username, password, age=None, gender=None):
     existing = users_repo.get_by_username(username)
     if existing:
+        # Allow claim if the account exists but has no password yet
         if not existing["password_hash"]:
             password_hash = generate_password_hash(password)
             users_repo.set_password_hash(username, password_hash)
@@ -47,3 +48,12 @@ def change_password(username, current_password, new_password):
     new_hash = generate_password_hash(new_password)
     users_repo.set_password_hash(username, new_hash)
     return None
+
+
+def delete_account(username):
+    user = users_repo.get_by_username(username)
+    if not user:
+        return "User not found"
+    users_repo.delete_user(username)
+    return None
+

@@ -1,3 +1,4 @@
+
 const state = {
   loggedIn: false,
   user: null,

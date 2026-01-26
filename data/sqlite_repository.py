@@ -1,3 +1,4 @@
+
 import sqlite3
 import string
 from difflib import get_close_matches
@@ -20,6 +21,7 @@ class SqliteRepository(Repository):
     def __init__(self, db_path: str = DB_PATH):
         self.db_path = db_path
         self._manga_cache = None
+        # Simple in-memory cache so repeated reads are fast.
 
     def _ensure_user_ratings_table(self, conn):
         ensure_user_ratings_table(conn)
@@ -70,6 +72,7 @@ class SqliteRepository(Repository):
         self._save_profile(profile)
         return profile
 
+    # Profiles are stored as stringified dicts for consistency with the rest of the codebase.
     def _save_profile(self, profile: Dict[str, Any]) -> None:
         with get_connection() as conn:
             ensure_users_table(conn)

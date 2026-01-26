@@ -5,7 +5,7 @@ from utils.parsing import parse_dict
 def get_profile(username):
     db = get_db()
     cur = db.execute(
-        "SELECT username, age, gender, preferred_genres, preferred_themes FROM users WHERE username = ?",
+        "SELECT username, age, gender, language, preferred_genres, preferred_themes FROM users WHERE username = ?",
         (username,),
     )
     row = cur.fetchone()
@@ -15,16 +15,17 @@ def get_profile(username):
         "username": row["username"],
         "age": None if row["age"] is None else int(row["age"]),
         "gender": row["gender"] or "",
+        "language": row["language"] or "English",
         "preferred_genres": parse_dict(row["preferred_genres"]),
         "preferred_themes": parse_dict(row["preferred_themes"]),
     }
 
 
-def update_profile(username, age=None, gender=None):
+def update_profile(username, age=None, gender=None, language=None):
     db = get_db()
     db.execute(
-        "UPDATE users SET age = ?, gender = ? WHERE username = ?",
-        (age, gender, username),
+        "UPDATE users SET age = ?, gender = ?, language = ? WHERE username = ?",
+        (age, gender, language, username),
     )
     db.commit()
 
@@ -35,6 +36,7 @@ def update_username(old_username, new_username):
         "UPDATE users SET username = ? WHERE username = ?",
         (new_username, old_username),
     )
+    # keep ratings tied to the same person
     db.execute(
         "UPDATE user_ratings SET user_id = ? WHERE user_id = ?",
         (new_username, old_username),
