@@ -1,4 +1,4 @@
-const BASE_PATH = window.BASE_PATH || "";
+const BASE_PATH = window.BASE_PATH || ""; // injected by templates
 
 function withBase(path) {
   if (!path.startsWith("/")) return `${BASE_PATH}/${path}`;

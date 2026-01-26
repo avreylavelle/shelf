@@ -72,6 +72,23 @@
       window.BASE_PATH = "{{ base_path }}";
     </script>
     <script src="{{ url_for('static', filename='common.js') }}"></script>
+
+    <dialog id="rate-modal" class="modal">
+      <h3 id="rate-modal-title">Rate</h3>
+      <div class="row">
+        <input id="rate-modal-input" type="number" min="0" max="10" step="0.1" placeholder="rating" />
+      </div>
+      <div class="row">
+        <label class="inline flag-line">
+          <input id="rate-modal-flag" type="checkbox" checked />
+          Recommended by us
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="rate-modal-close" class="ghost" type="button">Cancel</button>
+        <button id="rate-modal-add" type="button">Add</button>
+      </div>
+    </dialog>
     <script src="{{ url_for('static', filename='recommendations.js') }}"></script>
   </body>
 </html>

@@ -6,13 +6,13 @@ def search_by_title(query, limit=10):
     like = f"%{query}%"
     cur = db.execute(
         """
-        SELECT id, title_name, score, genres, themes
+        SELECT id, title_name, english_name, japanese_name, score, genres, themes
         FROM manga_cleaned
-        WHERE title_name LIKE ?
+        WHERE title_name LIKE ? OR english_name LIKE ? OR japanese_name LIKE ?
         ORDER BY score DESC
         LIMIT ?
         """,
-        (like, limit),
+        (like, like, like, limit),
     )
     return cur.fetchall()
 
@@ -31,7 +31,7 @@ def top_by_score_excluding(exclude_titles, limit=20):
     placeholders = ",".join(["?"] * len(exclude_titles))
     if exclude_titles:
         sql = (
-            "SELECT id, title_name, score, genres, themes "
+            "SELECT id, title_name, english_name, japanese_name, score, genres, themes "
             "FROM manga_cleaned "
             f"WHERE title_name NOT IN ({placeholders}) "
             "ORDER BY score DESC "
@@ -39,8 +39,9 @@ def top_by_score_excluding(exclude_titles, limit=20):
         )
         params = [*exclude_titles, limit]
     else:
+        # fallback if no exclude list
         sql = (
-            "SELECT id, title_name, score, genres, themes "
+            "SELECT id, title_name, english_name, japanese_name, score, genres, themes "
             "FROM manga_cleaned "
             "ORDER BY score DESC "
             "LIMIT ?"

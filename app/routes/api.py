@@ -23,8 +23,6 @@ def login_required(fn):
     return wrapper
 
 
-
-
 def admin_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
@@ -33,7 +31,23 @@ def admin_required(fn):
         if session.get("user_id") != "avreylavelle":
             return jsonify({"error": "admin only"}), 403
         return fn(*args, **kwargs)
+
     return wrapper
+
+
+
+
+def _get_value(row, key):
+    try:
+        return row.get(key)
+    except AttributeError:
+        return row[key] if hasattr(row, "keys") and key in row.keys() else None
+
+
+def _display_title(row, language):
+    if language == "Japanese":
+        return _get_value(row, "japanese_name") or _get_value(row, "title_name") or _get_value(row, "manga_id")
+    return _get_value(row, "english_name") or _get_value(row, "title_name") or _get_value(row, "manga_id")
 
 def _parse_list(value):
     if value is None:
@@ -64,6 +78,7 @@ def update_profile():
     data = request.get_json(silent=True) or {}
     age = data.get("age")
     gender = data.get("gender")
+    language = data.get("language")
     new_username = (data.get("username") or "").strip()
 
     if age == "":
@@ -74,6 +89,13 @@ def update_profile():
         except (TypeError, ValueError):
             return jsonify({"error": "age must be a number"}), 400
 
+
+    allowed_languages = {"English", "Japanese"}
+    if language and language not in allowed_languages:
+        return jsonify({"error": "language must be English or Japanese"}), 400
+    if language is None:
+        existing = profile_service.get_profile(user_id)
+        language = (existing or {}).get("language") or "English"
     if new_username:
         error = profile_service.change_username(user_id, new_username)
         if error:
@@ -81,7 +103,7 @@ def update_profile():
         session["user_id"] = new_username
         user_id = new_username
 
-    profile_service.update_profile(user_id, age=age, gender=gender)
+    profile_service.update_profile(user_id, age=age, gender=gender, language=language)
     profile = profile_service.get_profile(user_id)
     return jsonify({"ok": True, "profile": profile})
 
@@ -104,11 +126,17 @@ def list_ratings():
         sort = "chron"
 
     rows = ratings_service.list_ratings(user_id, sort=sort)
+    profile = profile_service.get_profile(user_id)
+    language = (profile or {}).get("language") or "English"
     payload = [
         {
             "user_id": row["user_id"],
             "manga_id": row["manga_id"],
+            "display_title": _display_title(row, language),
+            "english_name": row["english_name"],
+            "japanese_name": row["japanese_name"],
             "rating": row["rating"],
+            "recommended_by_us": row["recommended_by_us"],
             "created_at": row["created_at"],
         }
         for row in rows
@@ -119,6 +147,7 @@ def list_ratings():
 @api_bp.get("/ratings/map")
 @login_required
 def ratings_map():
+    # Used to prefill rating boxes on recommendations
     user_id = session["user_id"]
     items = ratings_service.list_ratings_map(user_id)
     return jsonify({"items": items})
@@ -131,8 +160,9 @@ def upsert_rating():
     data = request.get_json(silent=True) or {}
     manga_id = (data.get("manga_id") or "").strip()
     rating = data.get("rating")
+    recommended_by_us = data.get("recommended_by_us")
 
-    error = ratings_service.set_rating(user_id, manga_id, rating)
+    error = ratings_service.set_rating(user_id, manga_id, rating, recommended_by_us)
     if error:
         return jsonify({"error": error}), 400
 
@@ -158,10 +188,15 @@ def search_manga():
         return jsonify({"items": []})
 
     rows = manga_repo.search_by_title(query, limit=10)
+    profile = profile_service.get_profile(session["user_id"])
+    language = (profile or {}).get("language") or "English"
     payload = [
         {
             "id": row["id"],
             "title": row["title_name"],
+            "display_title": _display_title(row, language),
+            "english_name": row["english_name"],
+            "japanese_name": row["japanese_name"],
             "score": row["score"],
             "genres": row["genres"],
             "themes": row["themes"],
@@ -183,7 +218,7 @@ def manga_details():
     return jsonify({"item": dict(row)})
 
 
-
+# Admin endpoints (restricted to avreylavelle)
 @api_bp.post("/admin/switch-user")
 @admin_required
 def admin_switch_user():
@@ -205,7 +240,7 @@ def admin_export_ratings():
     rows = ratings_service.list_ratings(user_id, sort="chron")
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["manga_id", "rating"])
+    writer.writerow(["manga_id", "rating"])  # header line
     for row in rows:
         writer.writerow([row["manga_id"], row["rating"]])
     csv_data = output.getvalue()
@@ -250,6 +285,9 @@ def recommendation_options():
 @login_required
 def recommendations():
     user_id = session["user_id"]
+    profile = profile_service.get_profile(user_id)
+    language = (profile or {}).get("language") or "English"
+
     results, used_current = rec_service.recommend_for_user(
         current_app.config["DATABASE"],
         user_id,
@@ -258,7 +296,11 @@ def recommendations():
         limit=20,
         update_profile=False,
     )
-    return jsonify({"items": results or [], "used_current": used_current})
+    items = []
+    for item in results or []:
+        item["display_title"] = _display_title(item, language)
+        items.append(item)
+    return jsonify({"items": items, "used_current": used_current})
 
 
 @api_bp.post("/recommendations")
@@ -269,7 +311,11 @@ def recommendations_with_prefs():
     current_genres = _parse_list(data.get("genres"))
     current_themes = _parse_list(data.get("themes"))
 
+    # Keep history in sync (this is your "memory")
     profile_service.increment_preferences(user_id, current_genres, current_themes)
+
+    profile = profile_service.get_profile(user_id)
+    language = (profile or {}).get("language") or "English"
 
     results, used_current = rec_service.recommend_for_user(
         current_app.config["DATABASE"],
@@ -279,4 +325,8 @@ def recommendations_with_prefs():
         limit=20,
         update_profile=True,
     )
-    return jsonify({"items": results or [], "used_current": used_current})
+    items = []
+    for item in results or []:
+        item["display_title"] = _display_title(item, language)
+        items.append(item)
+    return jsonify({"items": items, "used_current": used_current})

@@ -1,4 +1,3 @@
--- Core tables
 CREATE TABLE IF NOT EXISTS users (
     username TEXT PRIMARY KEY,
     age INTEGER,

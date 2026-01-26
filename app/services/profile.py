@@ -6,8 +6,8 @@ def get_profile(username):
     return profile_repo.get_profile(username)
 
 
-def update_profile(username, age=None, gender=None):
-    profile_repo.update_profile(username, age=age, gender=gender)
+def update_profile(username, age=None, gender=None, language=None):
+    profile_repo.update_profile(username, age=age, gender=gender, language=language)
 
 
 def change_username(old_username, new_username):
@@ -20,6 +20,7 @@ def change_username(old_username, new_username):
     if existing:
         return "Username already exists"
 
+    # Update both users table + ratings ownership
     profile_repo.update_username(old_username, new_username)
     return None
 
@@ -36,6 +37,7 @@ def increment_preferences(username, current_genres, current_themes):
     preferred_genres = dict(profile.get("preferred_genres", {}))
     preferred_themes = dict(profile.get("preferred_themes", {}))
 
+    # Add +1 to each selected option (this is the "memory")
     for genre in current_genres:
         preferred_genres[genre] = preferred_genres.get(genre, 0) + 1
     for theme in current_themes:

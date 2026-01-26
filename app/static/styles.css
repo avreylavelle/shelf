@@ -1,3 +1,4 @@
+
 :root {
   --bg: #f7f4ef;
   --card: #ffffff;
@@ -95,6 +96,16 @@ body {
   align-items: center;
 }
 
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flag-line {
+  gap: 8px;
+}
+
 input,
 select {
   padding: 10px 12px;
@@ -128,6 +139,10 @@ button.ghost {
   background: transparent;
   color: var(--ink);
   border: 1px solid #ddd;
+}
+
+button.danger {
+  background: #b0413e;
 }
 
 .loading {
@@ -171,6 +186,22 @@ button.ghost {
   background: #faf7f2;
 }
 
+.list-item.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+}
+
+.list-item.split > * {
+  min-width: 0;
+}
+
+@media (max-width: 860px) {
+  .list-item.split {
+    grid-template-columns: 1fr;
+  }
+}
+
 .rec-main {
   display: flex;
   flex-direction: column;
@@ -181,7 +212,7 @@ button.ghost {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  align-items: flex-end;
+  align-items: flex-start;
 }
 
 .details-box {
@@ -252,4 +283,28 @@ button.ghost {
   border-radius: 12px;
   border: 1px solid #ddd;
   font-family: "Space Grotesk", "Trebuchet MS", sans-serif;
+}
+
+
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.modal {
+  border: none;
+  border-radius: 16px;
+  padding: 18px 20px;
+  width: min(420px, 92vw);
+  box-shadow: var(--shadow);
+}
+
+.modal h3 {
+  margin: 0 0 8px;
+}
+
+.modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
 }

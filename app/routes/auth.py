@@ -23,7 +23,6 @@ def register():
     if error:
         return _json_error(error)
 
-    session["user_id"] = user["username"]
     return jsonify({"ok": True, "user": user})
 
 
@@ -46,6 +45,20 @@ def login():
 
 @auth_bp.post("/logout")
 def logout():
+    session.pop("user_id", None)
+    return jsonify({"ok": True})
+
+
+@auth_bp.post("/delete-account")
+def delete_account():
+    user_id = session.get("user_id")
+    if not user_id:
+        return _json_error("auth required", status=401)
+
+    error = auth_service.delete_account(user_id)
+    if error:
+        return _json_error(error, status=400)
+
     session.pop("user_id", None)
     return jsonify({"ok": True})
 

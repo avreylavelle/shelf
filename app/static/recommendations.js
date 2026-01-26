@@ -8,11 +8,35 @@ const selectedGenresEl = document.getElementById("selected-genres");
 const selectedThemesEl = document.getElementById("selected-themes");
 const loadingEl = document.getElementById("recs-loading");
 
+// Keep a tiny local state, nothing fancy
 const state = {
   genres: [],
   themes: [],
   ratingsMap: {},
 };
+
+
+const rateModal = document.getElementById("rate-modal");
+const rateModalTitle = document.getElementById("rate-modal-title");
+const rateModalInput = document.getElementById("rate-modal-input");
+const rateModalFlag = document.getElementById("rate-modal-flag");
+const rateModalAdd = document.getElementById("rate-modal-add");
+const rateModalClose = document.getElementById("rate-modal-close");
+
+function openRateModal(title, displayTitle) {
+  if (!rateModal) return;
+  rateModal.dataset.title = title;
+  rateModalTitle.textContent = displayTitle || title;
+  const currentRating = state.ratingsMap[title];
+  rateModalInput.value = currentRating ?? "";
+  rateModalFlag.checked = true;
+  rateModal.showModal();
+}
+
+function closeRateModal() {
+  if (!rateModal) return;
+  rateModal.close();
+}
 
 function setLoading(isLoading) {
   loadingEl.setAttribute("aria-busy", String(isLoading));
@@ -29,20 +53,18 @@ function renderRecommendations(items) {
     .map((item) => {
       const currentRating = state.ratingsMap[item.title];
       const ratingText = currentRating == null ? "Not rated" : `Your rating: ${currentRating}`;
+      const displayTitle = item.display_title || item.title;
       return `
         <div class="list-item">
           <div class="rec-main">
-            <strong>${item.title}</strong>
+            <strong>${displayTitle}</strong>
             <div class="muted">Score: ${item.score ?? "n/a"}</div>
             <div class="muted">Match: ${item.match_score?.toFixed?.(3) ?? "n/a"} | Combined: ${item.combined_score?.toFixed?.(3) ?? "n/a"}</div>
             <div class="muted">${ratingText}</div>
           </div>
           <div class="rec-actions">
-            <div class="row">
-              <input type="number" min="0" max="10" step="0.1" placeholder="rating" class="rating-input" data-title="${item.title}" value="${currentRating ?? ""}" />
-              <button class="rate-btn" data-title="${item.title}" type="button">Rate</button>
-            </div>
             <button class="details-btn" data-title="${item.title}" type="button">Details</button>
+            <button class="rate-open" data-title="${item.title}" data-display="${displayTitle}" type="button">Rate →</button>
             <div class="details" data-details="${item.title}"></div>
           </div>
         </div>
@@ -66,7 +88,7 @@ function renderChips(container, items, type) {
 function addGenre() {
   const value = genreSelect.value;
   if (!value || state.genres.includes(value)) return;
-  if (state.genres.length >= 3) return;
+  if (state.genres.length >= 3) return; // hard cap like the CLI
   state.genres.push(value);
   renderChips(selectedGenresEl, state.genres, "genre");
 }
@@ -74,7 +96,7 @@ function addGenre() {
 function addTheme() {
   const value = themeSelect.value;
   if (!value || state.themes.includes(value)) return;
-  if (state.themes.length >= 2) return;
+  if (state.themes.length >= 2) return; // hard cap like the CLI
   state.themes.push(value);
   renderChips(selectedThemesEl, state.themes, "theme");
 }
@@ -85,6 +107,7 @@ async function loadRatingsMap() {
 }
 
 async function fetchRecommendationsWithPrefs() {
+  // ONLY fetch on button click (no auto-recs on load)
   setLoading(true);
   try {
     const data = await api("/api/recommendations", {
@@ -121,16 +144,6 @@ async function handleDetails(title, targetEl) {
   `;
 }
 
-async function rateTitle(title, inputEl) {
-  const value = inputEl.value;
-  const rating = value === "" ? null : Number(value);
-  await api("/api/ratings", {
-    method: "POST",
-    body: JSON.stringify({ manga_id: title, rating }),
-  });
-  await loadRatingsMap();
-}
-
 addGenreBtn.addEventListener("click", (event) => {
   event.preventDefault();
   addGenre();
@@ -160,6 +173,33 @@ selectedThemesEl.addEventListener("click", (event) => {
   renderChips(selectedThemesEl, state.themes, "theme");
 });
 
+if (rateModalAdd) {
+  rateModalAdd.addEventListener("click", () => {
+    const title = rateModal.dataset.title;
+    const value = rateModalInput.value;
+    const rating = value === "" ? null : Number(value);
+    const recommendedByUs = rateModalFlag.checked;
+    api("/api/ratings", {
+      method: "POST",
+      body: JSON.stringify({ manga_id: title, rating, recommended_by_us: recommendedByUs }),
+    })
+      .then(() => loadRatingsMap())
+      .then(closeRateModal)
+      .catch(() => {});
+  });
+}
+if (rateModalClose) {
+  rateModalClose.addEventListener("click", closeRateModal);
+}
+if (rateModal) {
+  rateModal.addEventListener("click", (event) => {
+    const rect = rateModal.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+      closeRateModal();
+    }
+  });
+}
+
 recommendationsEl.addEventListener("click", (event) => {
   if (event.target.classList.contains("details-btn")) {
     const title = event.target.dataset.title;
@@ -171,11 +211,10 @@ recommendationsEl.addEventListener("click", (event) => {
     handleDetails(title, targetEl).catch(() => {});
   }
 
-  if (event.target.classList.contains("rate-btn")) {
+  if (event.target.classList.contains("rate-open")) {
     const title = event.target.dataset.title;
-    const inputEl = event.target.parentElement.querySelector(".rating-input");
-    if (!inputEl) return;
-    rateTitle(title, inputEl).catch(() => {});
+    const displayTitle = event.target.dataset.display;
+    openRateModal(title, displayTitle);
   }
 });
 

@@ -8,8 +8,8 @@ from app.routes.api import api_bp
 from app.routes.auth import auth_bp
 from app.services import recommendations as rec_service
 
-BASE_PATH = "/shelf"
-ADMIN_USER = "avreylavelle"
+BASE_PATH = "/shelf"  # keep all web routes under /shelf
+ADMIN_USER = "avreylavelle"  # simple admin gate for now
 
 
 def _default_db_path():
@@ -18,6 +18,7 @@ def _default_db_path():
 
 
 def init_db(app):
+    # Make sure core tables exist (web shares the same DB as the CLI)
     db = sqlite3.connect(app.config["DATABASE"])
     db.row_factory = sqlite3.Row
     cur = db.cursor()
@@ -30,6 +31,7 @@ def init_db(app):
                 username TEXT PRIMARY KEY,
                 age INTEGER,
                 gender TEXT,
+                language TEXT,
                 preferred_genres TEXT,
                 preferred_themes TEXT,
                 password_hash TEXT
@@ -45,17 +47,31 @@ def init_db(app):
                 user_id TEXT NOT NULL,
                 manga_id TEXT NOT NULL,
                 rating REAL,
+                recommended_by_us INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, manga_id)
             )
             """
         )
 
+    # Add password_hash column if missing (existing DB)
     cur.execute("PRAGMA table_info(users)")
     user_cols = {row[1] for row in cur.fetchall()}
     if "password_hash" not in user_cols:
         cur.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
 
+
+    # Add language column if missing (existing DB)
+    cur.execute("PRAGMA table_info(users)")
+    user_cols = {row[1] for row in cur.fetchall()}
+    if "language" not in user_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN language TEXT")
+
+    # Add recommended_by_us column if missing (existing DB)
+    cur.execute("PRAGMA table_info(user_ratings)")
+    rating_cols = {row[1] for row in cur.fetchall()}
+    if "recommended_by_us" not in rating_cols:
+        cur.execute("ALTER TABLE user_ratings ADD COLUMN recommended_by_us INTEGER DEFAULT 0")
     db.commit()
     db.close()
 
@@ -93,6 +109,7 @@ def create_app():
 
     @app.route("/")
     def root():
+        # Main landing page (Lav Labs)
         return render_template(
             "landing.html",
             base_path=BASE_PATH,
@@ -136,6 +153,7 @@ def create_app():
         guard = _require_login()
         if guard:
             return guard
+        # Pull options once (cached in the service)
         genres, themes = rec_service.get_available_options(app.config["DATABASE"])
         return render_template(
             "recommendations.html",
