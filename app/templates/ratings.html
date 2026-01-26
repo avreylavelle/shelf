@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ratings · Lav Labs Manga</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-row">
+          <div>
+            <h1>Your Ratings</h1>
+            <p>Sort, update, and manage your rated manga.</p>
+          </div>
+          <div class="user-pill" id="nav-user"></div>
+        </div>
+        <nav class="nav">
+          <a href="{{ base_path }}/dashboard">Dashboard</a>
+          <a href="{{ base_path }}/profile">Profile</a>
+          <a href="{{ base_path }}/ratings" class="active">Ratings</a>
+          <a href="{{ base_path }}/recommendations">Recommendations</a>
+          <a href="{{ base_path }}/logout">Logout</a>
+        </nav>
+      </header>
+
+      <section class="card">
+        <div class="row">
+          <label class="inline">
+            Sort:
+            <select id="ratings-sort">
+              <option value="chron">Chronological</option>
+              <option value="alpha">Alphabetical</option>
+              <option value="rating_desc">Rating (High → Low)</option>
+              <option value="rating_asc">Rating (Low → High)</option>
+            </select>
+          </label>
+          <button id="toggle-ratings" class="ghost">Show All</button>
+          <div id="ratings-loading" class="loading" aria-live="polite" aria-busy="false">Loading ratings…</div>
+        </div>
+        <div id="ratings" class="list"></div>
+      </section>
+    </main>
+
+    <script>
+      window.BASE_PATH = "{{ base_path }}";
+    </script>
+    <script src="{{ url_for('static', filename='common.js') }}"></script>
+    <script src="{{ url_for('static', filename='ratings.js') }}"></script>
+  </body>
+</html>

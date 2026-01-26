@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Admin · Shelf</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-row">
+          <div>
+            <h1>Admin</h1>
+            <p>Switch users and manage ratings import/export.</p>
+          </div>
+          <div class="user-pill" id="nav-user"></div>
+        </div>
+        <nav class="nav">
+          <a href="{{ base_path }}/dashboard">Dashboard</a>
+          <a href="{{ base_path }}/profile">Profile</a>
+          <a href="{{ base_path }}/ratings">Ratings</a>
+          <a href="{{ base_path }}/recommendations">Recommendations</a>
+          <a href="{{ base_path }}/logout">Logout</a>
+        </nav>
+      </header>
+
+      <section class="card">
+        <h2>Switch User</h2>
+        <div class="row">
+          <input id="switch-username" type="text" placeholder="username" />
+          <button id="switch-user">Switch</button>
+        </div>
+        <div id="admin-status" class="status"></div>
+      </section>
+
+      <section class="card">
+        <h2>Ratings Export</h2>
+        <p class="muted">Download current user's ratings as CSV.</p>
+        <a class="cta" href="{{ base_path }}/api/admin/ratings/export">Download CSV</a>
+      </section>
+
+      <section class="card">
+        <h2>Ratings Import</h2>
+        <p class="muted">Paste CSV with headers: manga_id,rating</p>
+        <textarea id="import-csv" class="textarea" rows="8" placeholder="manga_id,rating\nBerserk,9.5"></textarea>
+        <div class="row">
+          <button id="import-btn">Import</button>
+        </div>
+        <div id="import-status" class="status"></div>
+      </section>
+    </main>
+
+    <script>
+      window.BASE_PATH = "{{ base_path }}";
+    </script>
+    <script src="{{ url_for('static', filename='common.js') }}"></script>
+    <script src="{{ url_for('static', filename='admin.js') }}"></script>
+  </body>
+</html>

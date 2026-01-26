@@ -1,4 +1,27 @@
-User Interface
-Complete overhaul of storing mangas in user data - store by index / key #, then print out english name or whatever when needed
-No CSV storage remains; keep SQLite schema aligned with this goal
-Fuzzy matching / auto correct 
+Shelf Expansion Roadmap
+
+Phase 1 — Stabilize the Manga Core
+- Polish UX: consistent nav, friendly errors, loading states
+- Ratings flow: show current rating, edit inline, prevent duplicates
+- History visibility: show what drives recs + allow reset
+- Admin tools: user switch, rating import/export
+
+Phase 2 — Expand Content Types
+- Add Content Type filter: Manga | Book | Light Novel
+- Normalize IDs for multiple datasets in one ratings table
+- Per-type metadata (author, publisher, page count)
+
+Phase 3 — Mixed Library
+- Cross-type recommendations (manga -> novels, etc.)
+- Normalize genres/themes across datasets
+- Collections + reading status (reading, finished, dropped)
+
+Phase 4 — Personalization & Discovery
+- Onboarding: seed preferences from 5–10 items
+- "Because you rated X" explanations
+- Explore page: trending, top-rated, seasonal picks
+
+Phase 5 — Social & Sharing (Optional)
+- Shareable profile page
+- Public lists
+- Lightweight follows/likes
