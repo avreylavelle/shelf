@@ -52,6 +52,7 @@ def get_available_options(db_path=None):
 
 def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=20, update_profile=True, mode=None, reroll=False, seed=None):
     db_path = _resolve_db_path(db_path)
+    mode = (mode or os.environ.get("RECOMMENDER_MODE", "v3")).lower()
     profile = profile_repo.get_profile(user_id)
     if not profile:
         return [], False
