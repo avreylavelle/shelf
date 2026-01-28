@@ -198,6 +198,125 @@ def score_row_v2(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hi
     return total_score, used_current
 
 
+
+
+def score_row_v3(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hist_genres, total_hist_themes, genre_affinity, theme_affinity):
+    used_current = False
+    genres = set(row["genres"])
+    themes = set(row["themes"])
+
+    cur_genres_score = len(genres & cur_genres) / max(len(cur_genres), 1)
+    cur_themes_score = len(themes & cur_themes) / max(len(cur_themes), 1)
+
+    weighted_cur_genres = cur_genres_score * REQUESTED_GENRE_WEIGHT
+    weighted_cur_themes = cur_themes_score * REQUESTED_THEME_WEIGHT
+
+    if weighted_cur_genres > 0 or weighted_cur_themes > 0:
+        used_current = True
+
+    # Normalize history by row size to reduce multi-tag bias
+    hist_genres_score = sum(hist_genres.get(g, 0) for g in genres) / (total_hist_genres * max(len(genres), 1))
+    hist_themes_score = sum(hist_themes.get(t, 0) for t in themes) / (total_hist_themes * max(len(themes), 1))
+
+    weighted_hist_genres = hist_genres_score * HISTORY_GENRE_WEIGHT
+    weighted_hist_themes = hist_themes_score * HISTORY_THEME_WEIGHT
+
+    rating_genre_boost = sum(genre_affinity.get(g, 0) for g in genres) / max(len(genres), 1)
+    rating_theme_boost = sum(theme_affinity.get(t, 0) for t in themes) / max(len(themes), 1)
+
+    # Clamp negative influence
+    rating_genre_boost = max(rating_genre_boost, -0.2)
+    rating_theme_boost = max(rating_theme_boost, -0.2)
+
+    weighted_rating_genres = rating_genre_boost * READ_TITLES_GENRE_WEIGHT
+    weighted_rating_themes = rating_theme_boost * READ_TITLES_THEME_WEIGHT
+
+    total_score = (
+        weighted_cur_genres
+        + weighted_cur_themes
+        + weighted_hist_genres
+        + weighted_hist_themes
+        + weighted_rating_genres
+        + weighted_rating_themes
+    )
+
+    return total_score, used_current
+
+
+def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7):
+    df = filtered_df.copy()
+    used_current = False
+
+    cur_genres = set(current_genres)
+    cur_themes = set(current_themes)
+
+    hist_genres = profile.get("preferred_genres", {})
+    hist_themes = profile.get("preferred_themes", {})
+
+    total_hist_genres = sum(hist_genres.values()) or 1
+    total_hist_themes = sum(hist_themes.values()) or 1
+
+    genre_affinity, theme_affinity = compute_rating_affinities_v2(manga_df, read_manga)
+
+    match_scores = []
+    used_current_flags = []
+    for _, row in df.iterrows():
+        score, used_c = score_row_v3(
+            row,
+            cur_genres,
+            cur_themes,
+            hist_genres,
+            hist_themes,
+            total_hist_genres,
+            total_hist_themes,
+            genre_affinity,
+            theme_affinity,
+        )
+        match_scores.append(score)
+        used_current_flags.append(used_c)
+
+    df["match_score"] = match_scores
+
+    used_current = any(used_current_flags)
+
+    if used_current:
+        df["match_score"] = df["match_score"] * 1
+    else:
+        df["match_score"] = df["match_score"] * (1 / (1 - (REQUESTED_GENRE_WEIGHT + REQUESTED_THEME_WEIGHT)))
+
+    # Internal score uses original scaling (0-10 -> 0-1)
+    df["internal_score"] = pd.to_numeric(df.get("score", 0), errors="coerce").fillna(0).mul(0.1).round(3)
+
+    combined_scores = []
+    for _, row in df.iterrows():
+        combined_scores.append(combine_scores(row["match_score"], row["internal_score"]))
+
+    df["combined_score"] = combined_scores
+
+    ranked = df.sort_values("combined_score", ascending=False)
+    if "title_name" in ranked.columns:
+        ranked = ranked.drop_duplicates(subset=["title_name"], keep="first")
+    elif "id" in ranked.columns:
+        ranked = ranked.drop_duplicates(subset=["id"], keep="first")
+
+    # Optional reroll: sample from top pool
+    if reroll and len(ranked) > top_n:
+        pool_size = min(len(ranked), max(top_n, top_n * pool_multiplier))
+        pool = ranked.head(pool_size).copy()
+        scores = pool["combined_score"].astype(float)
+        if temperature <= 0:
+            temperature = 0.7
+        weights = (scores / temperature).apply(lambda x: np.exp(x))
+        weights = weights / weights.sum() if weights.sum() > 0 else None
+        if weights is not None:
+            ranked = pool.sample(n=top_n, replace=False, weights=weights, random_state=seed)
+        else:
+            ranked = pool.head(top_n)
+    else:
+        ranked = ranked.head(top_n)
+
+    return ranked, used_current
+
 def score_and_rank_v2(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7):
     df = filtered_df.copy()
     used_current = False

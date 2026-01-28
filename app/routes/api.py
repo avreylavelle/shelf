@@ -456,7 +456,7 @@ def recommendations():
     for item in results or []:
         item["display_title"] = _display_title(item, language)
         items.append(_sanitize_item(item))
-    return jsonify({"items": items, "used_current": used_current, "mode": mode or "v2"})
+    return jsonify({"items": items, "used_current": used_current, "mode": mode or "v3"})
 
 
 @api_bp.post("/recommendations")
@@ -490,4 +490,4 @@ def recommendations_with_prefs():
     for item in results or []:
         item["display_title"] = _display_title(item, language)
         items.append(_sanitize_item(item))
-    return jsonify({"items": items, "used_current": used_current, "mode": mode or "v2"})
+    return jsonify({"items": items, "used_current": used_current, "mode": mode or "v3"})
