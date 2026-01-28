@@ -1,27 +1,45 @@
-Shelf Expansion Roadmap
+Shelf Expansion Roadmap (Updated)
 
-Phase 1 — Stabilize the Manga Core
-- Polish UX: consistent nav, friendly errors, loading states
-- Ratings flow: show current rating, edit inline, prevent duplicates
-- History visibility: show what drives recs + allow reset
-- Admin tools: user switch, rating import/export
+Phase 1 — Core UX & Data Integrity (Now)
+- UX polish baseline: consistent nav, toasts, loading states, hover states, layout fixes
+- Ratings/Reading/DNR exclusivity rules enforced across all flows
+- Sorting + filters with saved UI prefs for Ratings, DNR, Reading List
+- Language-aware display + alphabetical sorting by displayed language
+- Admin tools: user switch + CSV import/export
+- Confirm: log + handle all remaining server errors and edge cases
 
-Phase 2 — Expand Content Types
-- Add Content Type filter: Manga | Book | Light Novel
-- Normalize IDs for multiple datasets in one ratings table
-- Per-type metadata (author, publisher, page count)
+Phase 1.5 — Recommendation Engine Improvements (Short-term)
+- Add “Reroll” button: re-run recommendations without changing filters
+- Randomization with guardrails: keep top N weighted, shuffle mid‑tier
+- Diversity controls: genre/theme spread + avoid near‑duplicate series
+- Freshness: optional “include less popular” toggle (novelty boost)
+- Explainability: “Because you rated X / liked genre Y” badges per item
 
-Phase 3 — Mixed Library
-- Cross-type recommendations (manga -> novels, etc.)
-- Normalize genres/themes across datasets
-- Collections + reading status (reading, finished, dropped)
+Phase 2 — Personalization & User Modeling
+- Per-user preference model (explicit + implicit signals)
+- Store user feedback signals: clicked, rated, DNR, reading list, finished
+- Per-user weighting: tune match_score weights based on history
+- Feature flags for A/B: baseline vs personalized weights
+- Export per-user model snapshot (for debugging)
 
-Phase 4 — Personalization & Discovery
-- Onboarding: seed preferences from 5–10 items
-- "Because you rated X" explanations
+Phase 3 — ML Iteration (Opt-in)
+- Lightweight per-user ML (e.g., logistic regression or matrix factorization)
+- Model retrain schedule + caching
+- Training dataset pipeline: ratings + implicit feedback
+- Guardrails: cold-start fallback, minimum data threshold
+
+Phase 4 — Content Expansion
+- Add content types: Manga | Light Novel | Book
+- Normalize IDs + metadata across datasets
+- Cross-type recommendations (manga → novels, etc.)
+- Per-type filters and UI tabs
+
+Phase 5 — Discovery & Social (Optional)
 - Explore page: trending, top-rated, seasonal picks
+- Public lists + shareable profile page
+- Optional follows/likes
 
-Phase 5 — Social & Sharing (Optional)
-- Shareable profile page
-- Public lists
-- Lightweight follows/likes
+Notes
+- Randomization should never return already-rated or DNR items.
+- “Reroll” uses same filters, just reshuffles eligible set.
+- ML should remain optional and transparent; keep baseline recommender.

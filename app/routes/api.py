@@ -440,6 +440,8 @@ def recommendations():
     profile = profile_service.get_profile(user_id)
     language = (profile or {}).get("language") or "English"
 
+    mode = (request.args.get("mode") or "").strip() or None
+    reroll = (request.args.get("reroll") or "").strip().lower() in {"1", "true", "yes"}
     results, used_current = rec_service.recommend_for_user(
         current_app.config["DATABASE"],
         user_id,
@@ -447,12 +449,14 @@ def recommendations():
         [],
         limit=20,
         update_profile=False,
+        mode=mode,
+        reroll=reroll,
     )
     items = []
     for item in results or []:
         item["display_title"] = _display_title(item, language)
         items.append(_sanitize_item(item))
-    return jsonify({"items": items, "used_current": used_current})
+    return jsonify({"items": items, "used_current": used_current, "mode": mode or "v2"})
 
 
 @api_bp.post("/recommendations")
@@ -462,9 +466,12 @@ def recommendations_with_prefs():
     data = request.get_json(silent=True) or {}
     current_genres = _parse_list(data.get("genres"))
     current_themes = _parse_list(data.get("themes"))
+    mode = (data.get("mode") or "").strip() or None
+    reroll = bool(data.get("reroll"))
 
     # Keep history in sync (this is your "memory")
-    profile_service.increment_preferences(user_id, current_genres, current_themes)
+    if not reroll:
+        profile_service.increment_preferences(user_id, current_genres, current_themes)
 
     profile = profile_service.get_profile(user_id)
     language = (profile or {}).get("language") or "English"
@@ -476,9 +483,11 @@ def recommendations_with_prefs():
         current_themes,
         limit=20,
         update_profile=True,
+        mode=mode,
+        reroll=reroll,
     )
     items = []
     for item in results or []:
         item["display_title"] = _display_title(item, language)
         items.append(_sanitize_item(item))
-    return jsonify({"items": items, "used_current": used_current})
+    return jsonify({"items": items, "used_current": used_current, "mode": mode or "v2"})

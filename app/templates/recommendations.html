@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Recommendations · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260127aa" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260127ab" />
   </head>
   <body>
     <main class="page">
@@ -63,6 +63,14 @@
 
         <div class="row">
           <button id="recommend-btn" type="button">Get Recommendations</button>
+          <button id="reroll-btn" class="ghost" type="button">Reroll</button>
+          <label class="inline">
+            Mode:
+            <select id="rec-mode">
+              <option value="v2">v2 (default)</option>
+              <option value="v1">v1 (legacy)</option>
+            </select>
+          </label>
           <div id="recs-loading" class="loading" aria-live="polite" aria-busy="false">Loading recommendations…</div>
         </div>
 
@@ -75,7 +83,7 @@
     <script>
       window.BASE_PATH = "{{ base_path }}";
     </script>
-    <script src="{{ url_for('static', filename='common.js') }}?v=20260127aa"></script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260127ab"></script>
 
     <dialog id="rate-modal" class="modal">
       <h3 id="rate-modal-title">Rate</h3>
@@ -100,6 +108,6 @@
         <button id="rate-modal-add" type="button">Add</button>
       </div>
     </dialog>
-    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260127aa"></script>
+    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260127ab"></script>
   </body>
 </html>
