@@ -12,10 +12,10 @@ def create_user(username, password_hash, age=None, gender=None, language="Englis
     db = get_db()
     db.execute(
         """
-        INSERT INTO users (username, age, gender, language, ui_prefs, preferred_genres, preferred_themes, password_hash)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (username, age, gender, language, ui_prefs, preferred_genres, preferred_themes, signal_genres, signal_themes, password_hash)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (username, age, gender, language, ui_prefs, "{}", "{}", password_hash),
+        (username, age, gender, language, ui_prefs, "{}", "{}", "{}", "{}", password_hash),
     )
     db.commit()
 

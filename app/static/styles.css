@@ -117,6 +117,12 @@ select {
   color: var(--ink);
 }
 
+input[type="checkbox"] {
+  width: auto;
+  min-width: 0;
+  padding: 0;
+}
+
 label.inline {
   display: flex;
   align-items: center;
@@ -139,6 +145,14 @@ button.ghost {
   background: transparent;
   color: var(--ink);
   border: 1px solid #ddd;
+}
+
+.info-btn {
+  font-weight: 700;
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
 }
 
 button.danger {
@@ -243,11 +257,9 @@ button.danger {
 }
 
 .rec-actions {
-  width: 160px;
-
-
-  display: flex;
-  flex-direction: column;
+  width: 220px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   align-items: center;
 }
@@ -260,6 +272,57 @@ button.danger {
   font-size: 0.9rem;
   display: grid;
   gap: 6px;
+  width: 100%;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px 16px;
+}
+
+.details-row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.details-label {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.details-value {
+  color: var(--muted);
+}
+
+.details-group {
+  margin-top: 6px;
+  display: grid;
+  gap: 6px;
+}
+
+.details-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 12px;
+}
+
+.options-divider {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #e2ddd5;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .chips-label {
@@ -306,6 +369,12 @@ button.danger {
   background: #efe7df;
   color: var(--ink);
   font-size: 0.85rem;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 @media (max-width: 700px) {

@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import re
+from collections import Counter
 from utils.parsing import parse_list
 from recommender.constants import (
     REQUESTED_GENRE_WEIGHT,
@@ -9,6 +11,11 @@ from recommender.constants import (
     READ_TITLES_GENRE_WEIGHT,
     READ_TITLES_THEME_WEIGHT,
     MATCH_VS_INTERNAL_WEIGHT,
+    NOVELTY_WEIGHT,
+    SIGNAL_GENRE_WEIGHT,
+    SIGNAL_THEME_WEIGHT,
+    PERSONALIZATION_MIN_RATINGS,
+    PERSONALIZATION_FULL_RATINGS,
 )
 
 def compute_rating_affinities(manga_df, read_manga):
@@ -155,7 +162,177 @@ def _minmax(series):
     return (series - min_v) / (max_v - min_v)
 
 
-def score_row_v2(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hist_genres, total_hist_themes, genre_affinity, theme_affinity):
+def _series_key(title):
+    if not title:
+        return ""
+    text = str(title).lower()
+    text = re.sub(r"\(.*?\)", "", text)
+    text = re.split(r"[:\\-–—]", text)[0]
+    text = re.sub(r"[^a-z0-9]+", " ", text).strip()
+    return text
+
+
+def _personalization_strength(rated_count, enabled=True):
+    if not enabled:
+        return 0.0
+    if rated_count is None:
+        return 0.0
+    if rated_count < PERSONALIZATION_MIN_RATINGS:
+        return 0.0
+    if rated_count >= PERSONALIZATION_FULL_RATINGS:
+        return 1.0
+    span = PERSONALIZATION_FULL_RATINGS - PERSONALIZATION_MIN_RATINGS
+    return max(0.0, min(1.0, (rated_count - PERSONALIZATION_MIN_RATINGS) / max(span, 1)))
+
+
+def _soft_cap(score):
+    # Keeps scores in (0,1) while preserving ordering for larger values.
+    return 1 - np.exp(-score)
+
+
+def _extract_year(text):
+    if not text:
+        return None
+    match = re.search(r"(19\\d{2}|20\\d{2})", str(text))
+    if not match:
+        return None
+    try:
+        return int(match.group(1))
+    except ValueError:
+        return None
+
+
+def _apply_earliest_year_bias(df, earliest_year):
+    if not earliest_year:
+        return df
+    try:
+        earliest_year = int(earliest_year)
+    except (TypeError, ValueError):
+        return df
+    if "publishing_date" not in df.columns:
+        return df
+    years = df["publishing_date"].apply(_extract_year)
+    def penalty(year):
+        if year is None:
+            return 0.0
+        if year >= earliest_year:
+            return 0.0
+        gap = earliest_year - year
+        return min(0.25, gap * 0.01)
+    penalties = years.apply(penalty)
+    df["combined_score"] = df["combined_score"] * (1 - penalties)
+    return df
+
+
+def _apply_novelty(df, weight=NOVELTY_WEIGHT):
+    if weight <= 0:
+        return df
+    novelty = None
+    if "members" in df.columns:
+        members = pd.to_numeric(df["members"], errors="coerce").fillna(0)
+        novelty = 1 - _minmax(np.log1p(members))
+    elif "popularity" in df.columns:
+        popularity = pd.to_numeric(df["popularity"], errors="coerce")
+        novelty = _minmax(popularity.fillna(popularity.max() if popularity.notna().any() else 0))
+    elif "scored_by" in df.columns:
+        scored_by = pd.to_numeric(df["scored_by"], errors="coerce").fillna(0)
+        novelty = 1 - _minmax(np.log1p(scored_by))
+    if novelty is None:
+        return df
+    df["novelty_score"] = novelty.fillna(0)
+    df["combined_score"] = (1 - weight) * df["combined_score"] + weight * df["novelty_score"]
+    return df
+
+
+def _weighted_sample(df, n, temperature=0.7, seed=None):
+    if n <= 0 or df.empty:
+        return df.head(0)
+    scores = df["combined_score"].astype(float)
+    if temperature <= 0:
+        temperature = 0.7
+    weights = (scores / temperature).apply(lambda x: np.exp(x))
+    weights = weights / weights.sum() if weights.sum() > 0 else None
+    if weights is not None:
+        return df.sample(n=n, replace=False, weights=weights, random_state=seed)
+    return df.head(n)
+
+
+def _reroll_candidates(ranked, top_n, pool_multiplier=3, temperature=0.7, seed=None):
+    if ranked.empty or len(ranked) <= top_n:
+        return ranked, ranked.head(0)
+    pool_size = min(len(ranked), max(top_n, top_n * pool_multiplier))
+    pool = ranked.head(pool_size).copy()
+    anchor_n = max(1, int(top_n * 0.3))
+    anchors = pool.head(anchor_n)
+    remainder = pool.iloc[anchor_n:]
+    sample_n = min(len(remainder), max(top_n * 2, top_n) - anchor_n)
+    sampled = _weighted_sample(remainder, sample_n, temperature=temperature, seed=seed)
+    candidates = pd.concat([anchors, sampled])
+    candidates = candidates[~candidates.index.duplicated(keep="first")]
+    return candidates, anchors
+
+
+def _select_diverse(df, top_n, required=None):
+    if df.empty:
+        return df
+    max_genre = max(3, top_n // 3)
+    max_theme = max(2, top_n // 4)
+    selected_idx = []
+    seen_idx = set()
+    genre_counts = Counter()
+    theme_counts = Counter()
+    series_counts = Counter()
+    fallback = []
+
+    def add_row(idx, row, force=False):
+        if idx in seen_idx:
+            return False
+        title = row.get("title_name") or row.get("title") or row.get("english_name") or ""
+        key = _series_key(title)
+        genres = set(row.get("genres") or [])
+        themes = set(row.get("themes") or [])
+        if not force:
+            if key and series_counts[key] >= 1:
+                return False
+            if any(genre_counts[g] >= max_genre for g in genres):
+                return False
+            if any(theme_counts[t] >= max_theme for t in themes):
+                return False
+        selected_idx.append(idx)
+        seen_idx.add(idx)
+        if key:
+            series_counts[key] += 1
+        for g in genres:
+            genre_counts[g] += 1
+        for t in themes:
+            theme_counts[t] += 1
+        return True
+
+    if required is not None and not required.empty:
+        for idx, row in required.iterrows():
+            add_row(idx, row, force=True)
+
+    for idx, row in df.iterrows():
+        if idx in seen_idx:
+            continue
+        if add_row(idx, row, force=False):
+            if len(selected_idx) >= top_n:
+                break
+        else:
+            fallback.append((idx, row))
+
+    if len(selected_idx) < top_n:
+        for idx, row in fallback:
+            if idx in seen_idx:
+                continue
+            add_row(idx, row, force=True)
+            if len(selected_idx) >= top_n:
+                break
+
+    return df.loc[selected_idx]
+
+
+def score_row_v2(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hist_genres, total_hist_themes, genre_affinity, theme_affinity, signal_genres, signal_themes, signal_strength):
     used_current = False
     genres = set(row["genres"])
     themes = set(row["themes"])
@@ -186,6 +363,14 @@ def score_row_v2(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hi
     weighted_rating_genres = rating_genre_boost * READ_TITLES_GENRE_WEIGHT
     weighted_rating_themes = rating_theme_boost * READ_TITLES_THEME_WEIGHT
 
+    signal_genre_boost = sum(signal_genres.get(g, 0) for g in genres) / max(len(genres), 1)
+    signal_theme_boost = sum(signal_themes.get(t, 0) for t in themes) / max(len(themes), 1)
+    signal_genre_boost = max(min(signal_genre_boost, 0.25), -0.25)
+    signal_theme_boost = max(min(signal_theme_boost, 0.25), -0.25)
+
+    weighted_signal_genres = signal_genre_boost * SIGNAL_GENRE_WEIGHT * signal_strength
+    weighted_signal_themes = signal_theme_boost * SIGNAL_THEME_WEIGHT * signal_strength
+
     total_score = (
         weighted_cur_genres
         + weighted_cur_themes
@@ -193,6 +378,8 @@ def score_row_v2(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hi
         + weighted_hist_themes
         + weighted_rating_genres
         + weighted_rating_themes
+        + weighted_signal_genres
+        + weighted_signal_themes
     )
 
     return total_score, used_current
@@ -200,7 +387,7 @@ def score_row_v2(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hi
 
 
 
-def score_row_v3(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hist_genres, total_hist_themes, genre_affinity, theme_affinity):
+def score_row_v3(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hist_genres, total_hist_themes, genre_affinity, theme_affinity, signal_genres, signal_themes, signal_strength):
     used_current = False
     genres = set(row["genres"])
     themes = set(row["themes"])
@@ -231,6 +418,14 @@ def score_row_v3(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hi
     weighted_rating_genres = rating_genre_boost * READ_TITLES_GENRE_WEIGHT
     weighted_rating_themes = rating_theme_boost * READ_TITLES_THEME_WEIGHT
 
+    signal_genre_boost = sum(signal_genres.get(g, 0) for g in genres) / max(len(genres), 1)
+    signal_theme_boost = sum(signal_themes.get(t, 0) for t in themes) / max(len(themes), 1)
+    signal_genre_boost = max(min(signal_genre_boost, 0.25), -0.25)
+    signal_theme_boost = max(min(signal_theme_boost, 0.25), -0.25)
+
+    weighted_signal_genres = signal_genre_boost * SIGNAL_GENRE_WEIGHT * signal_strength
+    weighted_signal_themes = signal_theme_boost * SIGNAL_THEME_WEIGHT * signal_strength
+
     total_score = (
         weighted_cur_genres
         + weighted_cur_themes
@@ -238,12 +433,14 @@ def score_row_v3(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hi
         + weighted_hist_themes
         + weighted_rating_genres
         + weighted_rating_themes
+        + weighted_signal_genres
+        + weighted_signal_themes
     )
 
     return total_score, used_current
 
 
-def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7):
+def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7, diversify=True, novelty=False, personalize=True, earliest_year=None):
     df = filtered_df.copy()
     used_current = False
 
@@ -252,11 +449,15 @@ def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_th
 
     hist_genres = profile.get("preferred_genres", {})
     hist_themes = profile.get("preferred_themes", {})
+    signal_genres = profile.get("signal_genres", {})
+    signal_themes = profile.get("signal_themes", {})
 
     total_hist_genres = sum(hist_genres.values()) or 1
     total_hist_themes = sum(hist_themes.values()) or 1
 
     genre_affinity, theme_affinity = compute_rating_affinities_v2(manga_df, read_manga)
+    rated_count = sum(1 for v in read_manga.values() if v is not None)
+    signal_strength = _personalization_strength(rated_count, personalize)
 
     match_scores = []
     used_current_flags = []
@@ -271,6 +472,9 @@ def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_th
             total_hist_themes,
             genre_affinity,
             theme_affinity,
+            signal_genres,
+            signal_themes,
+            signal_strength,
         )
         match_scores.append(score)
         used_current_flags.append(used_c)
@@ -284,6 +488,8 @@ def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_th
     else:
         df["match_score"] = df["match_score"] * (1 / (1 - (REQUESTED_GENRE_WEIGHT + REQUESTED_THEME_WEIGHT)))
 
+    df["match_score"] = df["match_score"].apply(_soft_cap)
+
     # Internal score uses original scaling (0-10 -> 0-1)
     df["internal_score"] = pd.to_numeric(df.get("score", 0), errors="coerce").fillna(0).mul(0.1).round(3)
 
@@ -293,31 +499,32 @@ def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_th
 
     df["combined_score"] = combined_scores
 
+    df = _apply_earliest_year_bias(df, earliest_year)
+
     ranked = df.sort_values("combined_score", ascending=False)
     if "title_name" in ranked.columns:
         ranked = ranked.drop_duplicates(subset=["title_name"], keep="first")
     elif "id" in ranked.columns:
         ranked = ranked.drop_duplicates(subset=["id"], keep="first")
 
-    # Optional reroll: sample from top pool
-    if reroll and len(ranked) > top_n:
-        pool_size = min(len(ranked), max(top_n, top_n * pool_multiplier))
-        pool = ranked.head(pool_size).copy()
-        scores = pool["combined_score"].astype(float)
-        if temperature <= 0:
-            temperature = 0.7
-        weights = (scores / temperature).apply(lambda x: np.exp(x))
-        weights = weights / weights.sum() if weights.sum() > 0 else None
-        if weights is not None:
-            ranked = pool.sample(n=top_n, replace=False, weights=weights, random_state=seed)
+    if novelty:
+        ranked = _apply_novelty(ranked, NOVELTY_WEIGHT)
+
+    if reroll:
+        candidates, anchors = _reroll_candidates(ranked, top_n, pool_multiplier=pool_multiplier, temperature=temperature, seed=seed)
+        if diversify:
+            ranked = _select_diverse(candidates, top_n, required=anchors)
         else:
-            ranked = pool.head(top_n)
+            ranked = _weighted_sample(candidates, min(top_n, len(candidates)), temperature=temperature, seed=seed)
     else:
-        ranked = ranked.head(top_n)
+        if diversify:
+            ranked = _select_diverse(ranked, top_n)
+        else:
+            ranked = ranked.head(top_n)
 
     return ranked, used_current
 
-def score_and_rank_v2(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7):
+def score_and_rank_v2(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7, diversify=True, novelty=False, personalize=True, earliest_year=None):
     df = filtered_df.copy()
     used_current = False
 
@@ -326,11 +533,15 @@ def score_and_rank_v2(filtered_df, manga_df, profile, current_genres, current_th
 
     hist_genres = profile.get("preferred_genres", {})
     hist_themes = profile.get("preferred_themes", {})
+    signal_genres = profile.get("signal_genres", {})
+    signal_themes = profile.get("signal_themes", {})
 
     total_hist_genres = sum(hist_genres.values()) or 1
     total_hist_themes = sum(hist_themes.values()) or 1
 
     genre_affinity, theme_affinity = compute_rating_affinities_v2(manga_df, read_manga)
+    rated_count = sum(1 for v in read_manga.values() if v is not None)
+    signal_strength = _personalization_strength(rated_count, personalize)
 
     match_scores = []
     used_current_flags = []
@@ -345,6 +556,9 @@ def score_and_rank_v2(filtered_df, manga_df, profile, current_genres, current_th
             total_hist_themes,
             genre_affinity,
             theme_affinity,
+            signal_genres,
+            signal_themes,
+            signal_strength,
         )
         match_scores.append(score)
         used_current_flags.append(used_c)
@@ -361,32 +575,32 @@ def score_and_rank_v2(filtered_df, manga_df, profile, current_genres, current_th
         lambda row: combine_scores(row["match_score"], row["internal_score"]), axis=1
     )
 
+    df = _apply_earliest_year_bias(df, earliest_year)
+
     ranked = df.sort_values("combined_score", ascending=False)
     if "title_name" in ranked.columns:
         ranked = ranked.drop_duplicates(subset=["title_name"], keep="first")
     elif "id" in ranked.columns:
         ranked = ranked.drop_duplicates(subset=["id"], keep="first")
 
-    # Optional reroll: sample from top pool
-    if reroll and len(ranked) > top_n:
-        pool_size = min(len(ranked), max(top_n, top_n * pool_multiplier))
-        pool = ranked.head(pool_size).copy()
-        scores = pool["combined_score"].astype(float)
-        if temperature <= 0:
-            temperature = 0.7
-        weights = (scores / temperature).apply(lambda x: np.exp(x))
-        weights = weights / weights.sum() if weights.sum() > 0 else None
-        if weights is not None:
-            sample = pool.sample(n=top_n, replace=False, weights=weights, random_state=seed)
-            ranked = sample
+    if novelty:
+        ranked = _apply_novelty(ranked, NOVELTY_WEIGHT)
+
+    if reroll:
+        candidates, anchors = _reroll_candidates(ranked, top_n, pool_multiplier=pool_multiplier, temperature=temperature, seed=seed)
+        if diversify:
+            ranked = _select_diverse(candidates, top_n, required=anchors)
         else:
-            ranked = pool.head(top_n)
+            ranked = _weighted_sample(candidates, min(top_n, len(candidates)), temperature=temperature, seed=seed)
     else:
-        ranked = ranked.head(top_n)
+        if diversify:
+            ranked = _select_diverse(ranked, top_n)
+        else:
+            ranked = ranked.head(top_n)
 
     return ranked, used_current
 
-def score_and_rank(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20):
+def score_and_rank(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7, diversify=True, novelty=False, personalize=True, earliest_year=None):
     df = filtered_df.copy()
     used_current = False
 
@@ -397,12 +611,16 @@ def score_and_rank(filtered_df, manga_df, profile, current_genres, current_theme
     # These are the genres and themes on the users profile from previous entries
     hist_genres = profile.get("preferred_genres", {})
     hist_themes = profile.get("preferred_themes", {})
+    signal_genres = profile.get("signal_genres", {})
+    signal_themes = profile.get("signal_themes", {})
 
     # Sum of all genres and themes
     total_hist_genres = sum(hist_genres.values()) or 1
     total_hist_themes = sum(hist_themes.values()) or 1
 
     genre_affinity, theme_affinity = compute_rating_affinities(manga_df, read_manga)
+    rated_count = sum(1 for v in read_manga.values() if v is not None)
+    signal_strength = _personalization_strength(rated_count, personalize)
 
     match_scores = []
     used_current_flags = []
@@ -418,6 +636,15 @@ def score_and_rank(filtered_df, manga_df, profile, current_genres, current_theme
             genre_affinity,
             theme_affinity
         )
+        if signal_strength > 0 and (signal_genres or signal_themes):
+            row_genres = set(row.get("genres") or [])
+            row_themes = set(row.get("themes") or [])
+            signal_genre_boost = sum(signal_genres.get(g, 0) for g in row_genres) / max(len(row_genres), 1)
+            signal_theme_boost = sum(signal_themes.get(t, 0) for t in row_themes) / max(len(row_themes), 1)
+            signal_genre_boost = max(min(signal_genre_boost, 0.25), -0.25)
+            signal_theme_boost = max(min(signal_theme_boost, 0.25), -0.25)
+            score += (signal_genre_boost * SIGNAL_GENRE_WEIGHT * signal_strength)
+            score += (signal_theme_boost * SIGNAL_THEME_WEIGHT * signal_strength)
 
         match_scores.append(score)
         used_current_flags.append(used_c)
@@ -436,6 +663,8 @@ def score_and_rank(filtered_df, manga_df, profile, current_genres, current_theme
     else:
         df["match_score"] = df["match_score"] * (1 / (1 - (REQUESTED_GENRE_WEIGHT + REQUESTED_THEME_WEIGHT))) # Normalize if not using current
 
+    df["match_score"] = df["match_score"].apply(_soft_cap)
+
     combined_scores = []
 
     for i, row in df.iterrows():
@@ -447,11 +676,28 @@ def score_and_rank(filtered_df, manga_df, profile, current_genres, current_theme
 
     df["combined_score"] = combined_scores
 
+    df = _apply_earliest_year_bias(df, earliest_year)
+
     ranked = df.sort_values("combined_score", ascending = False)
     if "title_name" in ranked.columns:
         ranked = ranked.drop_duplicates(subset=["title_name"], keep="first")
     elif "id" in ranked.columns:
         ranked = ranked.drop_duplicates(subset=["id"], keep="first")
-    ranked = ranked.head(top_n)
+
+    if novelty:
+        ranked = _apply_novelty(ranked, NOVELTY_WEIGHT)
+
+    if reroll:
+        candidates, anchors = _reroll_candidates(ranked, top_n, pool_multiplier=pool_multiplier, temperature=temperature, seed=seed)
+        if diversify:
+            ranked = _select_diverse(candidates, top_n, required=anchors)
+        else:
+            ranked = _weighted_sample(candidates, min(top_n, len(candidates)), temperature=temperature, seed=seed)
+    else:
+        if diversify:
+            ranked = _select_diverse(ranked, top_n)
+        else:
+            ranked = ranked.head(top_n)
+
     return ranked, used_current
     

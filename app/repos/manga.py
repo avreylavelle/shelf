@@ -6,7 +6,7 @@ def search_by_title(query, limit=10):
     like = f"%{query}%"
     cur = db.execute(
         """
-        SELECT id, title_name, english_name, japanese_name, score, genres, themes
+        SELECT id, title_name, english_name, japanese_name, score, genres, themes, item_type
         FROM manga_cleaned
         WHERE title_name LIKE ? OR english_name LIKE ? OR japanese_name LIKE ?
         ORDER BY score DESC

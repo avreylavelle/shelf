@@ -5,7 +5,7 @@ from utils.parsing import parse_dict
 def get_profile(username):
     db = get_db()
     cur = db.execute(
-        "SELECT username, age, gender, language, ui_prefs, preferred_genres, preferred_themes FROM users WHERE lower(username) = lower(?)",
+        "SELECT username, age, gender, language, ui_prefs, preferred_genres, preferred_themes, signal_genres, signal_themes FROM users WHERE lower(username) = lower(?)",
         (username,),
     )
     row = cur.fetchone()
@@ -19,6 +19,8 @@ def get_profile(username):
         "ui_prefs": parse_dict(row["ui_prefs"]),
         "preferred_genres": parse_dict(row["preferred_genres"]),
         "preferred_themes": parse_dict(row["preferred_themes"]),
+        "signal_genres": parse_dict(row["signal_genres"]),
+        "signal_themes": parse_dict(row["signal_themes"]),
     }
 
 
@@ -69,4 +71,13 @@ def clear_preferences(username):
 def set_ui_prefs(username, ui_prefs):
     db = get_db()
     db.execute("UPDATE users SET ui_prefs = ? WHERE lower(username) = lower(?)", (str(ui_prefs), username))
+    db.commit()
+
+
+def set_signal_affinities(username, signal_genres, signal_themes):
+    db = get_db()
+    db.execute(
+        "UPDATE users SET signal_genres = ?, signal_themes = ? WHERE lower(username) = lower(?)",
+        (str(signal_genres), str(signal_themes), username),
+    )
     db.commit()

@@ -61,3 +61,7 @@ def get_ui_prefs(username):
     if not profile:
         return {}
     return profile.get("ui_prefs", {})
+
+
+def set_signal_affinities(username, signal_genres, signal_themes):
+    profile_repo.set_signal_affinities(_normalize(username), signal_genres, signal_themes)

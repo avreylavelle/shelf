@@ -10,12 +10,13 @@ def list_by_user(user_id, sort="chron"):
     db = get_db()
     cur = db.execute(
         f"""
-        SELECT r.user_id, r.manga_id, r.status, r.created_at, m.english_name, m.japanese_name, m.title_name
+        SELECT r.user_id, r.manga_id, r.status, r.created_at, m.english_name, m.japanese_name, m.title_name, m.item_type
         FROM user_reading_list r
         LEFT JOIN (
             SELECT title_name,
                    MIN(english_name) AS english_name,
-                   MIN(japanese_name) AS japanese_name
+                   MIN(japanese_name) AS japanese_name,
+                   MIN(item_type) AS item_type
             FROM manga_cleaned
             GROUP BY title_name
         ) m ON m.title_name = r.manga_id
