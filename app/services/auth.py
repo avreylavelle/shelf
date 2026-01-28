@@ -3,7 +3,12 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from app.repos import users as users_repo
 
 
+def _normalize(username):
+    return (username or "").strip().lower()
+
+
 def register(username, password, age=None, gender=None):
+    username = _normalize(username)
     existing = users_repo.get_by_username(username)
     if existing:
         # Allow claim if the account exists but has no password yet
@@ -19,6 +24,7 @@ def register(username, password, age=None, gender=None):
 
 
 def login(username, password):
+    username = _normalize(username)
     user = users_repo.get_by_username(username)
     if not user:
         return None, "Invalid username or password"
@@ -30,10 +36,11 @@ def login(username, password):
     if not check_password_hash(stored_hash, password):
         return None, "Invalid username or password"
 
-    return {"username": user["username"]}, None
+    return {"username": user["username"].lower()}, None
 
 
 def change_password(username, current_password, new_password):
+    username = _normalize(username)
     user = users_repo.get_by_username(username)
     if not user:
         return "User not found"
@@ -51,6 +58,7 @@ def change_password(username, current_password, new_password):
 
 
 def delete_account(username):
+    username = _normalize(username)
     user = users_repo.get_by_username(username)
     if not user:
         return "User not found"

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Recommendations · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260127aa" />
   </head>
   <body>
     <main class="page">
@@ -14,15 +14,19 @@
             <h1>Recommendations</h1>
             <p>Use genres and themes to steer your results.</p>
           </div>
-          <div class="user-pill" id="nav-user"></div>
-        </div>
-        <nav class="nav">
+                  </div>
+                <div class="nav-row">
+<nav class="nav">
           <a href="{{ base_path }}/dashboard">Dashboard</a>
-          <a href="{{ base_path }}/profile">Profile</a>
-          <a href="{{ base_path }}/ratings">Ratings</a>
           <a href="{{ base_path }}/recommendations" class="active">Recommendations</a>
+          <a href="{{ base_path }}/ratings">Ratings</a>
+          <a href="{{ base_path }}/reading-list">Reading List</a>
+          <a href="{{ base_path }}/do-not-recommend">DNR</a>
+          <a href="{{ base_path }}/profile">Profile</a>
           <a href="{{ base_path }}/logout">Logout</a>
         </nav>
+          <div class="user-pill" id="nav-user"></div>
+        </div>
       </header>
 
       <section class="card">
@@ -71,7 +75,7 @@
     <script>
       window.BASE_PATH = "{{ base_path }}";
     </script>
-    <script src="{{ url_for('static', filename='common.js') }}"></script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260127aa"></script>
 
     <dialog id="rate-modal" class="modal">
       <h3 id="rate-modal-title">Rate</h3>
@@ -84,11 +88,18 @@
           Recommended by us
         </label>
       </div>
+      <div class="row">
+        <label class="inline flag-line">
+          <input id="rate-modal-finished" type="checkbox" />
+          Finished reading
+        </label>
+      </div>
       <div class="modal-actions">
         <button id="rate-modal-close" class="ghost" type="button">Cancel</button>
+        <button id="rate-modal-reading" class="ghost" type="button">Add to Reading List</button>
         <button id="rate-modal-add" type="button">Add</button>
       </div>
     </dialog>
-    <script src="{{ url_for('static', filename='recommendations.js') }}"></script>
+    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260127aa"></script>
   </body>
 </html>

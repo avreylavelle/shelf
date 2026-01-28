@@ -8,6 +8,8 @@ from flask import Blueprint, jsonify, request, session, current_app, Response
 from app.services import ratings as ratings_service
 from app.services import recommendations as rec_service
 from app.services import profile as profile_service
+from app.services import dnr as dnr_service
+from app.services import reading_list as reading_list_service
 from app.repos import manga as manga_repo
 
 api_bp = Blueprint("api", __name__, url_prefix="/shelf/api")
@@ -49,6 +51,19 @@ def _display_title(row, language):
         return _get_value(row, "japanese_name") or _get_value(row, "title_name") or _get_value(row, "manga_id")
     return _get_value(row, "english_name") or _get_value(row, "title_name") or _get_value(row, "manga_id")
 
+
+
+def _sanitize_item(item):
+    # Avoid invalid JSON (NaN) and ensure a title string is present
+    for key in ("score", "internal_score", "match_score", "combined_score"):
+        value = item.get(key)
+        try:
+            if value != value:  # NaN check
+                item[key] = None
+        except Exception:
+            pass
+    return item
+
 def _parse_list(value):
     if value is None:
         return []
@@ -62,6 +77,26 @@ def get_session():
     user_id = session.get("user_id")
     return jsonify({"logged_in": bool(user_id), "user": user_id})
 
+
+
+
+@api_bp.get("/ui-prefs")
+@login_required
+def get_ui_prefs():
+    user_id = session["user_id"]
+    prefs = profile_service.get_ui_prefs(user_id)
+    return jsonify({"prefs": prefs})
+
+
+@api_bp.put("/ui-prefs")
+@login_required
+def set_ui_prefs():
+    user_id = session["user_id"]
+    data = request.get_json(silent=True) or {}
+    current = profile_service.get_ui_prefs(user_id)
+    merged = {**current, **data}
+    profile_service.set_ui_prefs(user_id, merged)
+    return jsonify({"ok": True, "prefs": merged})
 
 @api_bp.get("/profile")
 @login_required
@@ -80,6 +115,7 @@ def update_profile():
     gender = data.get("gender")
     language = data.get("language")
     new_username = (data.get("username") or "").strip()
+    new_username_norm = new_username.lower() if new_username else ""
 
     if age == "":
         age = None
@@ -97,11 +133,11 @@ def update_profile():
         existing = profile_service.get_profile(user_id)
         language = (existing or {}).get("language") or "English"
     if new_username:
-        error = profile_service.change_username(user_id, new_username)
+        error = profile_service.change_username(user_id, new_username_norm)
         if error:
             return jsonify({"error": error}), 400
-        session["user_id"] = new_username
-        user_id = new_username
+        session["user_id"] = new_username_norm
+        user_id = new_username_norm
 
     profile_service.update_profile(user_id, age=age, gender=gender, language=language)
     profile = profile_service.get_profile(user_id)
@@ -113,6 +149,123 @@ def update_profile():
 def clear_history():
     user_id = session["user_id"]
     profile_service.clear_history(user_id)
+    return jsonify({"ok": True})
+
+
+
+
+@api_bp.get("/dnr")
+@login_required
+def list_dnr():
+    user_id = session["user_id"]
+    sort = (request.args.get("sort") or "chron").strip()
+    allowed = {"chron", "alpha"}
+    if sort not in allowed:
+        sort = "chron"
+    rows = dnr_service.list_items(user_id, sort=sort)
+    profile = profile_service.get_profile(user_id)
+    language = (profile or {}).get("language") or "English"
+    payload = [
+        {
+            "user_id": row["user_id"],
+            "manga_id": row["manga_id"],
+            "status": row["status"] if "status" in row.keys() else None,
+            "display_title": _display_title(row, language),
+            "english_name": row["english_name"],
+            "japanese_name": row["japanese_name"],
+            "created_at": row["created_at"],
+        }
+        for row in rows
+    ]
+    if sort == "alpha":
+        payload.sort(key=lambda item: (item.get("display_title") or "").lower())
+    return jsonify({"items": payload})
+
+
+@api_bp.post("/dnr")
+@login_required
+def add_dnr():
+    user_id = session["user_id"]
+    data = request.get_json(silent=True) or {}
+    manga_id = (data.get("manga_id") or "").strip()
+    error = dnr_service.add_item(user_id, manga_id)
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({"ok": True})
+
+
+@api_bp.delete("/dnr/<path:manga_id>")
+@login_required
+def remove_dnr(manga_id):
+    user_id = session["user_id"]
+    manga_id = (manga_id or "").strip()
+    error = dnr_service.remove_item(user_id, manga_id)
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({"ok": True})
+
+@api_bp.get("/reading-list")
+@login_required
+def list_reading_list():
+    user_id = session["user_id"]
+    sort = (request.args.get("sort") or "chron").strip()
+    allowed = {"chron", "alpha"}
+    if sort not in allowed:
+        sort = "chron"
+    rows = reading_list_service.list_items(user_id, sort=sort)
+    profile = profile_service.get_profile(user_id)
+    language = (profile or {}).get("language") or "English"
+    payload = [
+        {
+            "user_id": row["user_id"],
+            "manga_id": row["manga_id"],
+            "status": row["status"] if "status" in row.keys() else None,
+            "display_title": _display_title(row, language),
+            "english_name": row["english_name"],
+            "japanese_name": row["japanese_name"],
+            "created_at": row["created_at"],
+        }
+        for row in rows
+    ]
+    if sort == "alpha":
+        payload.sort(key=lambda item: (item.get("display_title") or "").lower())
+    return jsonify({"items": payload})
+
+
+@api_bp.post("/reading-list")
+@login_required
+def add_reading_list():
+    user_id = session["user_id"]
+    data = request.get_json(silent=True) or {}
+    manga_id = (data.get("manga_id") or "").strip()
+    status = (data.get("status") or "Plan to Read").strip()
+    error = reading_list_service.add_item(user_id, manga_id, status=status)
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({"ok": True})
+
+
+@api_bp.put("/reading-list")
+@login_required
+def update_reading_list_status():
+    user_id = session["user_id"]
+    data = request.get_json(silent=True) or {}
+    manga_id = (data.get("manga_id") or "").strip()
+    status = (data.get("status") or "").strip()
+    error = reading_list_service.update_status(user_id, manga_id, status)
+    if error:
+        return jsonify({"error": error}), 400
+    return jsonify({"ok": True})
+
+
+@api_bp.delete("/reading-list/<path:manga_id>")
+@login_required
+def remove_reading_list(manga_id):
+    user_id = session["user_id"]
+    manga_id = (manga_id or "").strip()
+    error = reading_list_service.remove_item(user_id, manga_id)
+    if error:
+        return jsonify({"error": error}), 400
     return jsonify({"ok": True})
 
 
@@ -132,15 +285,19 @@ def list_ratings():
         {
             "user_id": row["user_id"],
             "manga_id": row["manga_id"],
+            "status": row["status"] if "status" in row.keys() else None,
             "display_title": _display_title(row, language),
             "english_name": row["english_name"],
             "japanese_name": row["japanese_name"],
             "rating": row["rating"],
             "recommended_by_us": row["recommended_by_us"],
+            "finished_reading": row["finished_reading"],
             "created_at": row["created_at"],
         }
         for row in rows
     ]
+    if sort == "alpha":
+        payload.sort(key=lambda item: (item.get("display_title") or "").lower())
     return jsonify({"items": payload})
 
 
@@ -161,8 +318,9 @@ def upsert_rating():
     manga_id = (data.get("manga_id") or "").strip()
     rating = data.get("rating")
     recommended_by_us = data.get("recommended_by_us")
+    finished_reading = data.get("finished_reading")
 
-    error = ratings_service.set_rating(user_id, manga_id, rating, recommended_by_us)
+    error = ratings_service.set_rating(user_id, manga_id, rating, recommended_by_us, finished_reading)
     if error:
         return jsonify({"error": error}), 400
 
@@ -275,12 +433,6 @@ def admin_import_ratings():
     return jsonify({"ok": True, "count": count})
 
 
-@api_bp.get("/recommendations/options")
-def recommendation_options():
-    genres, themes = rec_service.get_available_options(current_app.config["DATABASE"])
-    return jsonify({"genres": genres, "themes": themes})
-
-
 @api_bp.get("/recommendations")
 @login_required
 def recommendations():
@@ -299,7 +451,7 @@ def recommendations():
     items = []
     for item in results or []:
         item["display_title"] = _display_title(item, language)
-        items.append(item)
+        items.append(_sanitize_item(item))
     return jsonify({"items": items, "used_current": used_current})
 
 
@@ -328,5 +480,5 @@ def recommendations_with_prefs():
     items = []
     for item in results or []:
         item["display_title"] = _display_title(item, language)
-        items.append(item)
+        items.append(_sanitize_item(item))
     return jsonify({"items": items, "used_current": used_current})

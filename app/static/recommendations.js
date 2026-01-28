@@ -20,16 +20,21 @@ const rateModal = document.getElementById("rate-modal");
 const rateModalTitle = document.getElementById("rate-modal-title");
 const rateModalInput = document.getElementById("rate-modal-input");
 const rateModalFlag = document.getElementById("rate-modal-flag");
+const rateModalFinished = document.getElementById("rate-modal-finished");
 const rateModalAdd = document.getElementById("rate-modal-add");
+const rateModalReading = document.getElementById("rate-modal-reading");
 const rateModalClose = document.getElementById("rate-modal-close");
 
 function openRateModal(title, displayTitle) {
   if (!rateModal) return;
   rateModal.dataset.title = title;
-  rateModalTitle.textContent = displayTitle || title;
+  rateModal.dataset.display = displayTitle || title;
   const currentRating = state.ratingsMap[title];
+  rateModal.dataset.currentRating = currentRating ?? "";
+  rateModalTitle.textContent = displayTitle || title;
   rateModalInput.value = currentRating ?? "";
   rateModalFlag.checked = true;
+  if (rateModalFinished) rateModalFinished.checked = false;
   rateModal.showModal();
 }
 
@@ -41,6 +46,24 @@ function closeRateModal() {
 function setLoading(isLoading) {
   loadingEl.setAttribute("aria-busy", String(isLoading));
   loadingEl.style.display = isLoading ? "inline-flex" : "none";
+}
+
+
+function cssEscape(value) {
+  if (window.CSS && CSS.escape) return CSS.escape(value);
+  return String(value).replace(/"/g, '\"');
+}
+
+function removeRecommendation(title) {
+  const selector = `.list-item[data-title="${cssEscape(title)}"]`;
+  const el = recommendationsEl.querySelector(selector);
+  if (el) el.remove();
+}
+
+function displayForTitle(title) {
+  const selector = `.list-item[data-title="${cssEscape(title)}"]`;
+  const el = recommendationsEl.querySelector(selector);
+  return (el && el.dataset.display) || title;
 }
 
 function renderRecommendations(items) {
@@ -55,7 +78,7 @@ function renderRecommendations(items) {
       const ratingText = currentRating == null ? "Not rated" : `Your rating: ${currentRating}`;
       const displayTitle = item.display_title || item.title;
       return `
-        <div class="list-item">
+        <div class="list-item" data-title="${item.title}" data-display="${displayTitle}">
           <div class="rec-main">
             <strong>${displayTitle}</strong>
             <div class="muted">Score: ${item.score ?? "n/a"}</div>
@@ -64,13 +87,41 @@ function renderRecommendations(items) {
           </div>
           <div class="rec-actions">
             <button class="details-btn" data-title="${item.title}" type="button">Details</button>
-            <button class="rate-open" data-title="${item.title}" data-display="${displayTitle}" type="button">Rate →</button>
+            <button class="rate-open" data-title="${item.title}" data-display="${displayTitle}" type="button">Rate</button>
+            <button class="reading-btn" data-title="${item.title}" type="button">Reading List</button>
+            <button class="dnr-btn" data-title="${item.title}" type="button">DNR</button>
             <div class="details" data-details="${item.title}"></div>
           </div>
         </div>
       `;
     })
     .join("");
+}
+
+
+function topKeys(obj, limit) {
+  const entries = Object.entries(obj || {});
+  entries.sort((a, b) => b[1] - a[1]);
+  return entries.slice(0, limit).map(([key]) => key);
+}
+
+function optionSet(selectEl) {
+  const opts = Array.from(selectEl.options || []);
+  return new Set(opts.map((opt) => opt.value));
+}
+
+async function seedFromHistory() {
+  if (state.genres.length || state.themes.length) return;
+  const data = await api("/api/profile");
+  const profile = data.profile || {};
+  const genreOptions = optionSet(genreSelect);
+  const themeOptions = optionSet(themeSelect);
+  const preferredGenres = topKeys(profile.preferred_genres, 3).filter((g) => genreOptions.has(g));
+  const preferredThemes = topKeys(profile.preferred_themes, 2).filter((t) => themeOptions.has(t));
+  state.genres = preferredGenres;
+  state.themes = preferredThemes;
+  renderChips(selectedGenresEl, state.genres, "genre");
+  renderChips(selectedThemesEl, state.themes, "theme");
 }
 
 function renderChips(container, items, type) {
@@ -123,6 +174,7 @@ async function fetchRecommendationsWithPrefs() {
     recommendationsEl.innerHTML = `<p class='muted'>${err.message}</p>`;
   } finally {
     setLoading(false);
+seedFromHistory().catch(() => {});
   }
 }
 
@@ -176,16 +228,42 @@ selectedThemesEl.addEventListener("click", (event) => {
 if (rateModalAdd) {
   rateModalAdd.addEventListener("click", () => {
     const title = rateModal.dataset.title;
+    const display = rateModal.dataset.display || title;
     const value = rateModalInput.value;
     const rating = value === "" ? null : Number(value);
     const recommendedByUs = rateModalFlag.checked;
+    const finishedReading = rateModalFinished ? rateModalFinished.checked : false;
+    const current = rateModal.dataset.currentRating || "";
+    const ratingDisplay = value === "" ? (current !== "" ? current : "n/a") : rating;
     api("/api/ratings", {
       method: "POST",
-      body: JSON.stringify({ manga_id: title, rating, recommended_by_us: recommendedByUs }),
+      body: JSON.stringify({ manga_id: title, rating, recommended_by_us: recommendedByUs, finished_reading: finishedReading }),
     })
       .then(() => loadRatingsMap())
-      .then(closeRateModal)
-      .catch(() => {});
+      .then(() => {
+        showToast(`${display} added to ratings with rating ${ratingDisplay}`);
+        removeRecommendation(title);
+        closeRateModal();
+      })
+      .catch((err) => {
+        showToast(err.message || "Request failed");
+      });
+  });
+}
+
+if (rateModalReading) {
+  rateModalReading.addEventListener("click", () => {
+    const title = rateModal.dataset.title;
+    api("/api/reading-list", {
+      method: "POST",
+      body: JSON.stringify({ manga_id: title }),
+    })
+      .then(() => {
+        showToast(`Added ${displayForTitle(title)} to Reading List`);
+        removeRecommendation(title);
+        closeRateModal();
+      })
+      .catch((err) => showToast(err.message || "Request failed"));
   });
 }
 if (rateModalClose) {
@@ -216,6 +294,32 @@ recommendationsEl.addEventListener("click", (event) => {
     const displayTitle = event.target.dataset.display;
     openRateModal(title, displayTitle);
   }
+  if (event.target.classList.contains("reading-btn")) {
+    const title = event.target.dataset.title;
+    api("/api/reading-list", {
+      method: "POST",
+      body: JSON.stringify({ manga_id: title }),
+    })
+      .then(() => {
+        showToast(`Added ${displayForTitle(title)} to Reading List`);
+        removeRecommendation(title);
+      })
+      .catch((err) => showToast(err.message || "Request failed"));
+  }
+
+  if (event.target.classList.contains("dnr-btn")) {
+    const title = event.target.dataset.title;
+    api("/api/dnr", {
+      method: "POST",
+      body: JSON.stringify({ manga_id: title }),
+    })
+      .then(() => {
+        showToast(`Added ${displayForTitle(title)} to DNR`);
+        removeRecommendation(title);
+      })
+      .catch((err) => showToast(err.message || "Request failed"));
+  }
 });
 
 setLoading(false);
+seedFromHistory().catch(() => {});

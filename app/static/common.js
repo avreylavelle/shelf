@@ -20,6 +20,25 @@ async function api(path, options = {}) {
   return data;
 }
 
+
+let toastTimer;
+function showToast(message, timeout = 2200) {
+  if (!message) return;
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.className = "toast";
+    document.body.appendChild(el);
+  }
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    el.classList.remove("show");
+  }, timeout);
+}
+
 async function loadNavUser() {
   const el = document.getElementById("nav-user");
   if (!el) return;
