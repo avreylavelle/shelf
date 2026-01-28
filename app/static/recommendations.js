@@ -1,7 +1,20 @@
 const recommendationsEl = document.getElementById("recommendations");
 const recommendBtn = document.getElementById("recommend-btn");
 const rerollBtn = document.getElementById("reroll-btn");
-const recModeSelect = document.getElementById("rec-mode");
+const optionsBtn = document.getElementById("options-btn");
+const diversifyToggle = document.getElementById("diversify-toggle");
+const noveltyToggle = document.getElementById("novelty-toggle");
+const personalizeToggle = document.getElementById("personalize-toggle");
+const infoBtn = document.getElementById("info-btn");
+const infoModal = document.getElementById("info-modal");
+const infoClose = document.getElementById("info-close");
+const optionsModal = document.getElementById("options-modal");
+const optionsSave = document.getElementById("options-save");
+const optionsCancel = document.getElementById("options-cancel");
+const minYearInput = document.getElementById("min-year");
+const typeOptions = Array.from(document.querySelectorAll(".type-option"));
+const typesAll = document.getElementById("types-all");
+const typesNone = document.getElementById("types-none");
 const genreSelect = document.getElementById("genre-select");
 const themeSelect = document.getElementById("theme-select");
 const addGenreBtn = document.getElementById("add-genre");
@@ -26,6 +39,12 @@ const rateModalFinished = document.getElementById("rate-modal-finished");
 const rateModalAdd = document.getElementById("rate-modal-add");
 const rateModalReading = document.getElementById("rate-modal-reading");
 const rateModalClose = document.getElementById("rate-modal-close");
+const addModal = document.getElementById("add-modal");
+const addModalTitle = document.getElementById("add-modal-title");
+const addRateBtn = document.getElementById("add-rate");
+const addReadingBtn = document.getElementById("add-reading");
+const addDnrBtn = document.getElementById("add-dnr");
+const addCloseBtn = document.getElementById("add-close");
 
 function openRateModal(title, displayTitle) {
   if (!rateModal) return;
@@ -45,15 +64,57 @@ function closeRateModal() {
   rateModal.close();
 }
 
+function openAddModal(title, displayTitle) {
+  if (!addModal) return;
+  addModal.dataset.title = title;
+  addModal.dataset.display = displayTitle || title;
+  if (addModalTitle) addModalTitle.textContent = displayTitle || "Add";
+  addModal.showModal();
+}
+
+function closeAddModal() {
+  if (!addModal) return;
+  addModal.close();
+}
+
 
 async function loadUiPrefs() {
   try {
     const data = await api("/api/ui-prefs");
     const prefs = data.prefs || {};
-    if (recModeSelect && prefs.recs_mode) {
-      recModeSelect.value = prefs.recs_mode;
+    if (diversifyToggle && prefs.recs_diversify !== undefined) {
+      diversifyToggle.checked = Boolean(prefs.recs_diversify);
     }
-  } catch (err) {}
+    if (noveltyToggle && prefs.recs_novelty !== undefined) {
+      noveltyToggle.checked = Boolean(prefs.recs_novelty);
+    }
+    if (personalizeToggle && prefs.recs_personalize !== undefined) {
+      personalizeToggle.checked = Boolean(prefs.recs_personalize);
+    }
+    if (minYearInput && prefs.recs_min_year) {
+      minYearInput.value = prefs.recs_min_year;
+    }
+    if (typeOptions.length) {
+      if (prefs.recs_types !== undefined) {
+        const raw = prefs.recs_types;
+        const list = Array.isArray(raw) ? raw : String(raw).split(",").map((v) => v.trim()).filter(Boolean);
+        const desired = new Set(list.map((val) => String(val)));
+        typeOptions.forEach((opt) => {
+          opt.checked = desired.has(opt.value);
+        });
+      } else {
+        typeOptions.forEach((opt) => {
+          opt.checked = true;
+        });
+      }
+    }
+  } catch (err) {
+    if (typeOptions.length) {
+      typeOptions.forEach((opt) => {
+        opt.checked = true;
+      });
+    }
+  }
 }
 
 async function saveUiPref(key, value) {
@@ -97,27 +158,31 @@ function renderRecommendations(items) {
   recommendationsEl.innerHTML = items
     .map((item) => {
       const currentRating = state.ratingsMap[item.title];
-      const ratingText = currentRating == null ? "Not rated" : `Your rating: ${currentRating}`;
+      const ratingText = currentRating == null ? "" : `Your rating: ${currentRating}`;
       const displayTitle = item.display_title || item.title;
+      const reasons = (item.reasons || [])
+        .map((reason) => `<span class="badge">${reason}</span>`)
+        .join("");
       return `
         <div class="list-item" data-title="${item.title}" data-display="${displayTitle}">
           <div class="rec-main">
             <strong>${displayTitle}</strong>
-            <div class="muted">Score: ${item.score ?? "n/a"}</div>
-            <div class="muted">Match: ${item.match_score?.toFixed?.(3) ?? "n/a"} | Combined: ${item.combined_score?.toFixed?.(3) ?? "n/a"}</div>
-            <div class="muted">${ratingText}</div>
+            ${ratingText ? `<div class="muted">${ratingText}</div>` : ""}
+            ${reasons ? `<div class="badges">${reasons}</div>` : ""}
+            <div class="details" data-details="${item.title}"></div>
           </div>
           <div class="rec-actions">
             <button class="details-btn" data-title="${item.title}" type="button">Details</button>
-            <button class="rate-open" data-title="${item.title}" data-display="${displayTitle}" type="button">Rate</button>
-            <button class="reading-btn" data-title="${item.title}" type="button">Reading List</button>
-            <button class="dnr-btn" data-title="${item.title}" type="button">DNR</button>
-            <div class="details" data-details="${item.title}"></div>
+            <button class="add-open" data-title="${item.title}" data-display="${displayTitle}" type="button">Add</button>
           </div>
         </div>
       `;
     })
     .join("");
+}
+
+function selectedTypes() {
+  return typeOptions.filter((opt) => opt.checked).map((opt) => opt.value);
 }
 
 
@@ -161,7 +226,6 @@ function renderChips(container, items, type) {
 function addGenre() {
   const value = genreSelect.value;
   if (!value || state.genres.includes(value)) return;
-  if (state.genres.length >= 3) return; // hard cap like the CLI
   state.genres.push(value);
   renderChips(selectedGenresEl, state.genres, "genre");
 }
@@ -169,7 +233,6 @@ function addGenre() {
 function addTheme() {
   const value = themeSelect.value;
   if (!value || state.themes.includes(value)) return;
-  if (state.themes.length >= 2) return; // hard cap like the CLI
   state.themes.push(value);
   renderChips(selectedThemesEl, state.themes, "theme");
 }
@@ -183,14 +246,17 @@ async function fetchRecommendationsWithPrefs(reroll = false) {
   // ONLY fetch on button click (no auto-recs on load)
   setLoading(true);
   try {
-    const mode = recModeSelect ? recModeSelect.value : "v2";
     const data = await api("/api/recommendations", {
       method: "POST",
       body: JSON.stringify({
         genres: state.genres,
         themes: state.themes,
-        mode,
         reroll,
+        diversify: diversifyToggle ? diversifyToggle.checked : true,
+        novelty: noveltyToggle ? noveltyToggle.checked : false,
+        personalize: personalizeToggle ? personalizeToggle.checked : true,
+        min_year: minYearInput ? Number(minYearInput.value) : undefined,
+        content_types: selectedTypes(),
       }),
     });
     await loadRatingsMap();
@@ -204,19 +270,75 @@ seedFromHistory().catch(() => {});
 }
 
 async function handleDetails(title, targetEl) {
+  api("/api/events", {
+    method: "POST",
+    body: JSON.stringify({ event_type: "clicked", manga_id: title }),
+  }).catch(() => {});
   const data = await api(`/api/manga/details?title=${encodeURIComponent(title)}`);
   const item = data.item || {};
+  const toList = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+        try {
+          const cleaned = trimmed.replace(/'/g, '"');
+          const parsed = JSON.parse(cleaned);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (err) {}
+      }
+      return trimmed.split(",").map((v) => v.trim()).filter(Boolean);
+    }
+    return [];
+  };
+  const renderChips = (items) =>
+    items.length ? `<div class="details-chips">${items.map((val) => `<span class="badge">${val}</span>`).join("")}</div>` : "<span class='muted'>n/a</span>";
+
+  const rows = [
+    ["Type", item.item_type],
+    ["Status", item.status],
+    ["Publishing", item.publishing_date],
+    ["Volumes", item.volumes],
+    ["Chapters", item.chapters],
+    ["Score", item.score],
+  ]
+    .filter((entry) => entry[1] !== undefined && entry[1] !== null && entry[1] !== "")
+    .map(
+      ([label, value]) => `
+        <div class="details-row">
+          <div class="details-label">${label}</div>
+          <div class="details-value">${value}</div>
+        </div>
+      `
+    )
+    .join("");
+
   targetEl.innerHTML = `
     <div class="details-box">
-      <div><strong>Type:</strong> ${item.item_type ?? "n/a"}</div>
-      <div><strong>Volumes:</strong> ${item.volumes ?? "n/a"}</div>
-      <div><strong>Chapters:</strong> ${item.chapters ?? "n/a"}</div>
-      <div><strong>Status:</strong> ${item.status ?? "n/a"}</div>
-      <div><strong>Publishing:</strong> ${item.publishing_date ?? "n/a"}</div>
-      <div><strong>Authors:</strong> ${item.authors ?? "n/a"}</div>
-      <div><strong>Demographic:</strong> ${item.demographic ?? "n/a"}</div>
-      <div><strong>Genres:</strong> ${item.genres ?? "n/a"}</div>
-      <div><strong>Themes:</strong> ${item.themes ?? "n/a"}</div>
+      <div class="details-grid">
+        ${rows || `<div class="muted">No extra details available.</div>`}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Demographic</div>
+        ${renderChips(toList(item.demographic))}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Authors</div>
+        ${renderChips(toList(item.authors))}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Serialization</div>
+        ${renderChips(toList(item.serialization))}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Genres</div>
+        ${renderChips(toList(item.genres))}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Themes</div>
+        ${renderChips(toList(item.themes))}
+      </div>
     </div>
   `;
 }
@@ -229,15 +351,73 @@ addThemeBtn.addEventListener("click", (event) => {
   event.preventDefault();
   addTheme();
 });
-if (recModeSelect) {
-  recModeSelect.addEventListener("change", () => {
-    saveUiPref("recs_mode", recModeSelect.value);
+if (diversifyToggle) {
+  diversifyToggle.addEventListener("change", () => {
+    saveUiPref("recs_diversify", diversifyToggle.checked);
+  });
+}
+if (noveltyToggle) {
+  noveltyToggle.addEventListener("change", () => {
+    saveUiPref("recs_novelty", noveltyToggle.checked);
+  });
+}
+if (personalizeToggle) {
+  personalizeToggle.addEventListener("change", () => {
+    saveUiPref("recs_personalize", personalizeToggle.checked);
+  });
+}
+if (optionsBtn && optionsModal) {
+  optionsBtn.addEventListener("click", () => optionsModal.showModal());
+}
+if (typesAll && typeOptions.length) {
+  typesAll.addEventListener("click", () => {
+    typeOptions.forEach((opt) => {
+      opt.checked = true;
+    });
+  });
+}
+if (typesNone && typeOptions.length) {
+  typesNone.addEventListener("click", () => {
+    typeOptions.forEach((opt) => {
+      opt.checked = false;
+    });
+  });
+}
+if (optionsSave && optionsModal) {
+  optionsSave.addEventListener("click", () => {
+    if (diversifyToggle) saveUiPref("recs_diversify", diversifyToggle.checked);
+    if (noveltyToggle) saveUiPref("recs_novelty", noveltyToggle.checked);
+    if (personalizeToggle) saveUiPref("recs_personalize", personalizeToggle.checked);
+    if (minYearInput) saveUiPref("recs_min_year", Number(minYearInput.value) || 2007);
+    if (typeOptions.length) {
+      const types = selectedTypes();
+      typeOptions.forEach((opt) => {
+        opt.checked = types.includes(opt.value);
+      });
+      saveUiPref("recs_types", types);
+    }
+    optionsModal.close();
+  });
+}
+if (optionsCancel && optionsModal) {
+  optionsCancel.addEventListener("click", () => optionsModal.close());
+}
+if (optionsModal) {
+  optionsModal.addEventListener("click", (event) => {
+    const rect = optionsModal.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+      optionsModal.close();
+    }
   });
 }
 
 if (rerollBtn) {
   rerollBtn.addEventListener("click", (event) => {
     event.preventDefault();
+    api("/api/events", {
+      method: "POST",
+      body: JSON.stringify({ event_type: "reroll" }),
+    }).catch(() => {});
     fetchRecommendationsWithPrefs(true);
   });
 }
@@ -316,24 +496,17 @@ if (rateModal) {
   });
 }
 
-recommendationsEl.addEventListener("click", (event) => {
-  if (event.target.classList.contains("details-btn")) {
-    const title = event.target.dataset.title;
-    const targetEl = event.target.parentElement.querySelector(".details");
-    if (targetEl.innerHTML) {
-      targetEl.innerHTML = "";
-      return;
-    }
-    handleDetails(title, targetEl).catch(() => {});
-  }
-
-  if (event.target.classList.contains("rate-open")) {
-    const title = event.target.dataset.title;
-    const displayTitle = event.target.dataset.display;
-    openRateModal(title, displayTitle);
-  }
-  if (event.target.classList.contains("reading-btn")) {
-    const title = event.target.dataset.title;
+if (addRateBtn) {
+  addRateBtn.addEventListener("click", () => {
+    const title = addModal.dataset.title;
+    const display = addModal.dataset.display || title;
+    closeAddModal();
+    openRateModal(title, display);
+  });
+}
+if (addReadingBtn) {
+  addReadingBtn.addEventListener("click", () => {
+    const title = addModal.dataset.title;
     api("/api/reading-list", {
       method: "POST",
       body: JSON.stringify({ manga_id: title }),
@@ -341,12 +514,14 @@ recommendationsEl.addEventListener("click", (event) => {
       .then(() => {
         showToast(`Added ${displayForTitle(title)} to Reading List`);
         removeRecommendation(title);
+        closeAddModal();
       })
       .catch((err) => showToast(err.message || "Request failed"));
-  }
-
-  if (event.target.classList.contains("dnr-btn")) {
-    const title = event.target.dataset.title;
+  });
+}
+if (addDnrBtn) {
+  addDnrBtn.addEventListener("click", () => {
+    const title = addModal.dataset.title;
     api("/api/dnr", {
       method: "POST",
       body: JSON.stringify({ manga_id: title }),
@@ -354,10 +529,56 @@ recommendationsEl.addEventListener("click", (event) => {
       .then(() => {
         showToast(`Added ${displayForTitle(title)} to DNR`);
         removeRecommendation(title);
+        closeAddModal();
       })
       .catch((err) => showToast(err.message || "Request failed"));
+  });
+}
+if (addCloseBtn) {
+  addCloseBtn.addEventListener("click", closeAddModal);
+}
+if (addModal) {
+  addModal.addEventListener("click", (event) => {
+    const rect = addModal.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+      closeAddModal();
+    }
+  });
+}
+
+if (infoBtn && infoModal) {
+  infoBtn.addEventListener("click", () => infoModal.showModal());
+}
+if (infoClose && infoModal) {
+  infoClose.addEventListener("click", () => infoModal.close());
+}
+if (infoModal) {
+  infoModal.addEventListener("click", (event) => {
+    const rect = infoModal.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+      infoModal.close();
+    }
+  });
+}
+
+recommendationsEl.addEventListener("click", (event) => {
+  if (event.target.classList.contains("details-btn")) {
+    const title = event.target.dataset.title;
+    const targetEl = event.target.closest(".list-item").querySelector(".details");
+    if (targetEl.innerHTML) {
+      targetEl.innerHTML = "";
+      return;
+    }
+    handleDetails(title, targetEl).catch(() => {});
+  }
+
+  if (event.target.classList.contains("add-open")) {
+    const title = event.target.dataset.title;
+    const displayTitle = event.target.dataset.display;
+    openAddModal(title, displayTitle);
   }
 });
 
 setLoading(false);
+loadUiPrefs().catch(() => {});
 seedFromHistory().catch(() => {});

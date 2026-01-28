@@ -30,7 +30,7 @@ def filter_already_read(df, read_manga):
 
     return df
 
-def publish_date_filter(df):
+def publish_date_filter(df, earliest_year=EARLIEST_DESIRED_DATE):
     
     def keep_row(date): # this does not recommend anything older than desired
         text = str(date).strip()
@@ -40,7 +40,7 @@ def publish_date_filter(df):
             return True
         try:
             year = int(last_piece[:4])
-            if year >= EARLIEST_DESIRED_DATE: # if its newer
+            if year >= earliest_year: # if its newer
                 return True # good
             else: # older
                 return False # bad
@@ -53,7 +53,16 @@ def filter_item_type():
     # Doujinshi,  Light Novel,  Manga,  Manhua,  Manhwa,  Novel,  One-shot
     pass
 
-def run_filters(manga_df, profile, read_manga):
+def filter_item_type(df, content_types=None):
+    if not content_types:
+        return df
+    allowed = {str(t).strip() for t in content_types if str(t).strip()}
+    if not allowed:
+        return df
+    return df[df["item_type"].isin(allowed)]
+
+
+def run_filters(manga_df, profile, read_manga, earliest_year=EARLIEST_DESIRED_DATE, content_types=None):
     """Apply all filtering steps."""
 
     df = manga_df.copy()
@@ -61,6 +70,6 @@ def run_filters(manga_df, profile, read_manga):
     df = filter_nsfw(df, profile)
     df = parse_lists(df)
     df = filter_already_read(df, read_manga)
-    df = publish_date_filter(df)
+    df = filter_item_type(df, content_types=content_types)
 
     return df

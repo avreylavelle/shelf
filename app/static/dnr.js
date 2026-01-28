@@ -5,6 +5,13 @@ const searchResults = document.getElementById("dnr-search-results");
 const dnrList = document.getElementById("dnr-list");
 const dnrSort = document.getElementById("dnr-sort");
 const dnrFilter = document.getElementById("dnr-filter");
+const typesButtons = Array.from(document.querySelectorAll(".dnr-types-open"));
+const typesModal = document.getElementById("dnr-types-modal");
+const typesSave = document.getElementById("dnr-types-save");
+const typesCancel = document.getElementById("dnr-types-cancel");
+const typesAll = document.getElementById("dnr-types-all");
+const typesNone = document.getElementById("dnr-types-none");
+const typeOptions = Array.from(document.querySelectorAll("#dnr-types-modal .type-option"));
 
 
 async function loadUiPrefs() {
@@ -14,7 +21,21 @@ async function loadUiPrefs() {
     if (prefs.dnr_sort && dnrSort) {
       dnrSort.value = prefs.dnr_sort;
     }
-  } catch (err) {}
+    if (typeOptions.length) {
+      if (prefs.dnr_types !== undefined) {
+        const raw = prefs.dnr_types;
+        const list = Array.isArray(raw) ? raw : String(raw).split(",").map((v) => v.trim()).filter(Boolean);
+        const desired = new Set(list.map((val) => String(val)));
+        typeOptions.forEach((opt) => {
+          opt.checked = desired.has(opt.value);
+        });
+      } else {
+        setDefaultTypes();
+      }
+    }
+  } catch (err) {
+    if (typeOptions.length) setDefaultTypes();
+  }
 }
 
 async function saveUiPref(key, value) {
@@ -33,7 +54,29 @@ function setStatus(text, isError = false) {
 }
 
 
-const state = { items: [] };
+const state = { items: [], searchItems: [] };
+
+function selectedTypes() {
+  return typeOptions.filter((opt) => opt.checked).map((opt) => opt.value);
+}
+
+function selectedTypeSet() {
+  const selected = selectedTypes();
+  return selected.length ? new Set(selected) : null;
+}
+
+function setDefaultTypes() {
+  if (!typeOptions.length) return;
+  typeOptions.forEach((opt) => {
+    opt.checked = true;
+  });
+}
+
+function filterByType(items) {
+  const typeSet = selectedTypeSet();
+  if (!typeSet) return items;
+  return items.filter((item) => !item.item_type || typeSet.has(item.item_type));
+}
 
 const listState = {
   ratings: new Set(),
@@ -74,8 +117,10 @@ function renderSearchResults(items) {
             <strong>${item.display_title || item.title}</strong>
             <div class="muted">Score: ${item.score ?? "n/a"}</div>
             ${getLocations(item.title).length ? `<div class="badge">Currently in: ${getLocations(item.title).join(", ")}</div>` : ""}
+            <div class="details" data-details="${item.title}"></div>
           </div>
           <div class="row">
+            <button class="details-btn" data-title="${item.title}" type="button">Details</button>
             <button class="dnr-add" data-title="${item.title}" type="button">Add to DNR</button>
           </div>
         </div>
@@ -95,16 +140,19 @@ async function searchTitles() {
   await loadListState();
   const data = await api(`/api/manga/search?q=${encodeURIComponent(query)}`);
   const items = (data.items || []).filter((item) => !listState.dnr.has(item.title));
-  renderSearchResults(items);
+  state.searchItems = items;
+  renderSearchResults(filterByType(state.searchItems));
   setStatus("");
 }
 
 function filterDnrItems(items) {
   const query = (dnrFilter && dnrFilter.value.trim().toLowerCase()) || "";
-  if (!query) return items;
+  const typeSet = selectedTypeSet();
   return items.filter((item) => {
     const title = (item.display_title || item.manga_id || "").toLowerCase();
-    return title.includes(query);
+    if (query && !title.includes(query)) return false;
+    if (typeSet && item.item_type && !typeSet.has(item.item_type)) return false;
+    return true;
   });
 }
 
@@ -122,14 +170,91 @@ function renderDnr(items) {
           <div>
             <strong>${item.display_title || item.manga_id}</strong>
             <div class="muted">Added: ${item.created_at}</div>
+            <div class="details" data-details="${item.manga_id}"></div>
           </div>
           <div class="row">
+            <button class="details-btn" data-title="${item.manga_id}" type="button">Details</button>
             <button class="dnr-remove" data-title="${item.manga_id}" type="button">Remove</button>
           </div>
         </div>
       `
     )
     .join("");
+}
+
+async function handleDetails(title, targetEl) {
+  if (!targetEl) return;
+  api("/api/events", {
+    method: "POST",
+    body: JSON.stringify({ event_type: "details", manga_id: title }),
+  }).catch(() => {});
+  const data = await api(`/api/manga/details?title=${encodeURIComponent(title)}`);
+  const item = data.item || {};
+  const toList = (value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+        try {
+          const cleaned = trimmed.replace(/'/g, '"');
+          const parsed = JSON.parse(cleaned);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (err) {}
+      }
+      return trimmed.split(",").map((v) => v.trim()).filter(Boolean);
+    }
+    return [];
+  };
+  const renderChips = (items) =>
+    items.length ? `<div class="details-chips">${items.map((val) => `<span class="badge">${val}</span>`).join("")}</div>` : "<span class='muted'>n/a</span>";
+
+  const rows = [
+    ["Type", item.item_type],
+    ["Status", item.status],
+    ["Publishing", item.publishing_date],
+    ["Volumes", item.volumes],
+    ["Chapters", item.chapters],
+    ["Score", item.score],
+  ]
+    .filter((entry) => entry[1] !== undefined && entry[1] !== null && entry[1] !== "")
+    .map(
+      ([label, value]) => `
+        <div class="details-row">
+          <div class="details-label">${label}</div>
+          <div class="details-value">${value}</div>
+        </div>
+      `
+    )
+    .join("");
+
+  targetEl.innerHTML = `
+    <div class="details-box">
+      <div class="details-grid">
+        ${rows || `<div class="muted">No extra details available.</div>`}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Demographic</div>
+        ${renderChips(toList(item.demographic))}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Authors</div>
+        ${renderChips(toList(item.authors))}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Serialization</div>
+        ${renderChips(toList(item.serialization))}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Genres</div>
+        ${renderChips(toList(item.genres))}
+      </div>
+      <div class="details-group">
+        <div class="details-label">Themes</div>
+        ${renderChips(toList(item.themes))}
+      </div>
+    </div>
+  `;
 }
 
 async function loadDnr() {
@@ -151,6 +276,45 @@ if (searchInput) {
   });
 }
 
+if (typesButtons.length && typesModal) {
+  typesButtons.forEach((btn) => btn.addEventListener("click", () => typesModal.showModal()));
+}
+if (typesAll && typeOptions.length) {
+  typesAll.addEventListener("click", () => {
+    typeOptions.forEach((opt) => {
+      opt.checked = true;
+    });
+  });
+}
+if (typesNone && typeOptions.length) {
+  typesNone.addEventListener("click", () => {
+    typeOptions.forEach((opt) => {
+      opt.checked = false;
+    });
+  });
+}
+if (typesSave && typesModal) {
+  typesSave.addEventListener("click", () => {
+    saveUiPref("dnr_types", selectedTypes());
+    typesModal.close();
+    renderDnr(state.items || []);
+    if (state.searchItems.length) {
+      renderSearchResults(filterByType(state.searchItems));
+    }
+  });
+}
+if (typesCancel && typesModal) {
+  typesCancel.addEventListener("click", () => typesModal.close());
+}
+if (typesModal) {
+  typesModal.addEventListener("click", (event) => {
+    const rect = typesModal.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+      typesModal.close();
+    }
+  });
+}
+
 
 if (dnrFilter) {
   dnrFilter.addEventListener("input", () => {
@@ -166,6 +330,16 @@ if (dnrSort) {
 }
 if (searchResults) {
   searchResults.addEventListener("click", (event) => {
+    if (event.target.classList.contains("details-btn")) {
+      const title = event.target.dataset.title;
+      const targetEl = event.target.closest(".list-item").querySelector(".details");
+      if (targetEl.innerHTML) {
+        targetEl.innerHTML = "";
+        return;
+      }
+      handleDetails(title, targetEl).catch(() => {});
+      return;
+    }
     if (!event.target.classList.contains("dnr-add")) return;
     const title = event.target.dataset.title;
     const card = event.target.closest(".list-item");
@@ -192,6 +366,16 @@ if (searchResults) {
 
 if (dnrList) {
   dnrList.addEventListener("click", (event) => {
+    if (event.target.classList.contains("details-btn")) {
+      const title = event.target.dataset.title;
+      const targetEl = event.target.closest(".list-item").querySelector(".details");
+      if (targetEl.innerHTML) {
+        targetEl.innerHTML = "";
+        return;
+      }
+      handleDetails(title, targetEl).catch(() => {});
+      return;
+    }
     if (!event.target.classList.contains("dnr-remove")) return;
     const title = event.target.dataset.title;
     api(`/api/dnr/${encodeURIComponent(title)}`, { method: "DELETE" })

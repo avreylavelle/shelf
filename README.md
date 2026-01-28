@@ -1,128 +1,107 @@
-# Manga Recommender System (Content Based)
+# Shelf — Manga Recommender (Content‑Based)
 
-## Overview 
+## Overview
+Shelf is a content‑based manga recommender with **both a web app and a terminal UI**. It runs entirely on **SQLite**, emphasizes **interpretability**, and works without large‑scale collaborative data. The system combines metadata signals (genres, themes, demographics) with user history to rank recommendations.
 
-This project implements a content-based manga recommendation system that personalizes rankings using metadata-driven signals. Unlike collaborative filtering approaches, this system operates without a large user base, supports cold-start users, and emphasizes interpretability over black-box models.
+The project currently ships with:
+- **Web app (Flask + JS)** under `/shelf` with login, dashboard, ratings, recommendations, reading list, and DNR.
+- **Terminal UI (TUI)** for the original CLI experience.
+- **SQLite‑backed** data and user profiles, with a repository/service architecture.
 
-The recommender combines explicit user preferences and heuristic scoring to adapt recommendations over time using content and metadata alone. Storage is SQLite-based, and all data access is routed through a repository interface.
+## Key Features
 
-## Project Goals
- - Operate without large-scale user behavior data
- - Support cold-start users
- - Track per-user preference signals
- - Maintain interpretability and explainability
- - Explore the practical limits of content-based recommendation
+### Web App
+- **Auth + profiles** (age, gender, language)
+- **Dashboard** with quick links
+- **Recommendations** with:
+  - Reroll
+  - Diversity control
+  - “Include less popular” toggle
+  - Explainability badges
+  - Personalized mode toggle
+- **Ratings** CRUD + “recommended by us” + “finished reading”
+- **Reading List** with status (Plan to Read / In Progress)
+- **Do Not Recommend (DNR)** list
+- **Admin tools** (user switch + CSV import/export)
 
-## Core Ideas
+### Personalization (Phase 2)
+Signals are logged and converted into per‑user affinities:
+- Rated titles
+- Finished reading
+- Clicked details
+- Reading list
+- DNR
 
-### 1. Content Based Recommendation
+These affinities lightly bias scoring when “Personalized” is enabled (with guardrails).
 
-Recommendations are driven by manga metadata from a MyAnimeList dataset, such as:
+## Recommender Modes
+- **v3 (Balanced)**: default. Original scoring blend + improved normalization and signal affinities.
+- **v2 (Relative)**: min‑max normalizes match/internal within the current pool.
+- **v1 (Legacy)**: original baseline scoring.
 
- - Genres
- - Themes
- - Demographics
- - Serializaiton Source
- - Publicaiton context
+The web UI currently defaults to **v3**.
 
-### 2. Handwritten Heuristic Baseline
-
-A deterministic recommender scores manga using:
-
- - Genre overlap
- - Theme overlap
- - User history affinity
- - Rated title similarity
-
-This baseline provides strong cold-start performance and serves as a fallback when insufficient user data is available.
-
-## System Architecture
-
-The overall system architecture is:
-UI -> Services -> Repository -> SQLite
-Profile -> Signal Extraction -> Final Ranking -> Recommend
-
-## Signals Used:
-
-Signals intended for use:
- - Requested genre overlap (optional)
- - Requested theme overlap (optional)
- - Historical genre affinity
- - Historical theme affinity
- - Rated title genre affinity
- - Rated title theme affinity
- - Serializaiton match
- - Demographic match
- - Global feature quality score
-
-These signals are combined deterministically in the scoring logic.
-
-
-## Limitations
-
-I can see a few things happening with this model in the end
- - No collaborative filtering
- - No large scale behavioral data
- - No embeddings or deep learning
- - Metadata **CANNOT** capture tone, quality, or emotional impact
-
-This project intentionally explores how far content-only recommendation can go, and where it breaks down.
+## How Recommendations Are Scored (High‑Level)
+- Match score (requested genres/themes, history, rating affinities)
+- Internal score (dataset score) scaled to 0–1
+- Combined score (70% match / 30% internal)
+- Optional diversity & novelty adjustments
 
 ## Project Structure
-
+```
 manga_recommender_ml/
-  Dataset/
-    dataset.txt
-    manga.db
-  recommender/
-    constants.py
-    filtering.py
-    recommender.py
-    scoring.py
-  core/
-    recommendations.py
-  data/
-    repository.py
-    sqlite_repository.py
-    get_repo.py
-    schema.sql
-  services/
-    library.py
-    recommendations.py
-  ui_terminal/
-    tui_menu.py
-    tui_profile.py
-    tui_recommend.py
-  user/
-    user_profile.py
-  utils/
-    cleaning.py
-    input.py
-    lookup.py
-    parsing.py
-  main.py
-  README.md
+  app/                 # Flask web app
+    routes/            # API + auth
+    services/          # Web services layer
+    repos/             # DB access
+    templates/         # HTML pages
+    static/            # JS/CSS
+  recommender/         # Core scoring + filtering
+  core/                # Shared recommendation entrypoint
+  ui_terminal/         # CLI/TUI interface
+  Dataset/             # SQLite DB + dataset refs
+  utils/               # Parsing/cleaning helpers
+  main.py              # CLI entrypoint
   requirements.txt
+```
 
-## Running the project
+## Running Locally
 
-### 1. Clone the repository
- - Navigate to preferred directory
- - git clone https://github.com/avreylavelle/manga_recommender_ml.git
- - cd manga_recommender_ml
- - 
-### 2. Create venv
- - python -m venv venv
- - source venv/Scripts/activate (This is git bash on windows. Use proper commands for OS and terminal)
+### 1) Create venv + install
+```
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-### 3. Install dependencies
- - pip install -r requirements.txt
+### 2) Run Terminal UI
+```
+python main.py
+```
 
-### 4. Run
- - python main.py
+### 3) Run Web App (dev)
+```
+python app/app.py
+```
+Then open:
+- `http://localhost:5000/shelf/login`
 
-## User Experience
+### 4) Run Web App (prod)
+```
+gunicorn -w 2 -b 127.0.0.1:5000 app.app:app
+```
 
-### As of right now, it is as follows:
+## Configuration
+Environment variables:
+- `MANGA_DB_PATH` — optional path to the SQLite DB (defaults to `Dataset/manga.db`)
+- `FLASK_SECRET_KEY` — session secret
+- `RECOMMENDER_MODE` — optional default mode (`v1`, `v2`, `v3`)
 
-The user can create and then sign into a profile, recommend themselves manga, and rate manga.
+## Admin
+- Admin user is currently hard‑coded as `avreylavelle`.
+- Admin tools live at `/shelf/admin`.
+
+## Notes
+- The web app is designed to run under the `/shelf` base path (reverse‑proxy friendly).
+- The system intentionally avoids heavy ML and focuses on interpretable, content‑based ranking.
+- See `todo.txt` for the current roadmap.

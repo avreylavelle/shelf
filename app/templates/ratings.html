@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Ratings · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260127ac" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260128u" />
   </head>
   <body>
     <main class="page">
@@ -14,17 +14,11 @@
             <h1>Your Ratings</h1>
             <p>Sort, update, and manage your rated manga.</p>
           </div>
-                  </div>
-                <div class="nav-row">
-<nav class="nav">
-          <a href="{{ base_path }}/dashboard">Dashboard</a>
-          <a href="{{ base_path }}/recommendations">Recommendations</a>
-          <a href="{{ base_path }}/ratings" class="active">Ratings</a>
-          <a href="{{ base_path }}/reading-list">Reading List</a>
-          <a href="{{ base_path }}/do-not-recommend">DNR</a>
-          <a href="{{ base_path }}/profile">Profile</a>
-          <a href="{{ base_path }}/logout">Logout</a>
-        </nav>
+        </div>
+        <div class="nav-row">
+          <nav class="nav">
+            <a href="{{ base_path }}/dashboard">Dashboard</a>
+          </nav>
           <div class="user-pill" id="nav-user"></div>
         </div>
       </header>
@@ -35,14 +29,16 @@
         <h2>Filter Ratings</h2>
         <div class="row">
           <input id="ratings-filter" type="text" placeholder="filter by title" />
+          <button class="ghost ratings-types-open" type="button">Content types</button>
         </div>
       </section>
 
-<section class="card">
+      <section class="card">
         <h2>Add a Rating</h2>
         <div class="row">
           <input id="rating-search" type="text" placeholder="search manga title" />
           <button id="rating-search-btn" type="button">Search</button>
+          <button class="ghost ratings-types-open" type="button">Content types</button>
           <div id="rating-search-status" class="status"></div>
         </div>
         <div id="rating-search-results" class="list"></div>
@@ -69,7 +65,30 @@
     <script>
       window.BASE_PATH = "{{ base_path }}";
     </script>
-    <script src="{{ url_for('static', filename='common.js') }}?v=20260127ac"></script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260128u"></script>
+
+    <dialog id="ratings-types-modal" class="modal">
+      <h3>Content types</h3>
+      <div class="stack">
+        <div class="row">
+          <button id="ratings-types-all" class="ghost" type="button">Select all</button>
+          <button id="ratings-types-none" class="ghost" type="button">Remove all</button>
+        </div>
+        <div class="options-grid">
+          <label class="inline"><input type="checkbox" class="type-option" value="Manga" /> Manga</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Light Novel" /> Light Novel</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="One-shot" /> One-shot</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Manhwa" /> Manhwa</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Doujinshi" /> Doujinshi</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Manhua" /> Manhua</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Novel" /> Novel</label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="ratings-types-cancel" class="ghost" type="button">Cancel</button>
+        <button id="ratings-types-save" type="button">Save</button>
+      </div>
+    </dialog>
 
     <dialog id="rate-modal" class="modal">
       <h3 id="rate-modal-title">Rate</h3>
@@ -94,6 +113,6 @@
         <button id="rate-modal-add" type="button">Add</button>
       </div>
     </dialog>
-    <script src="{{ url_for('static', filename='ratings.js') }}?v=20260127ac"></script>
+    <script src="{{ url_for('static', filename='ratings.js') }}?v=20260128x"></script>
   </body>
 </html>

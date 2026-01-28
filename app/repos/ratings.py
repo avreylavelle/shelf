@@ -17,12 +17,13 @@ def list_by_user(user_id, sort="chron"):
     cur = db.execute(
         f"""
         SELECT r.user_id, r.manga_id, r.rating, r.recommended_by_us, r.finished_reading, r.created_at,
-               m.title_name, m.english_name, m.japanese_name
+               m.title_name, m.english_name, m.japanese_name, m.item_type
         FROM user_ratings r
         LEFT JOIN (
             SELECT title_name,
                    MIN(english_name) AS english_name,
-                   MIN(japanese_name) AS japanese_name
+                   MIN(japanese_name) AS japanese_name,
+                   MIN(item_type) AS item_type
             FROM manga_cleaned
             GROUP BY title_name
         ) m ON m.title_name = r.manga_id
@@ -75,4 +76,3 @@ def get_rating_value(user_id, manga_id):
     )
     row = cur.fetchone()
     return row[0] if row else None
-

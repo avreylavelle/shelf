@@ -10,6 +10,7 @@ from app.services import recommendations as rec_service
 from app.services import profile as profile_service
 from app.services import dnr as dnr_service
 from app.services import reading_list as reading_list_service
+from app.services import signals as signals_service
 from app.repos import manga as manga_repo
 
 api_bp = Blueprint("api", __name__, url_prefix="/shelf/api")
@@ -70,6 +71,14 @@ def _parse_list(value):
     if isinstance(value, list):
         return [str(v).strip() for v in value if str(v).strip()]
     return [v.strip() for v in str(value).split(",") if v.strip()]
+
+
+def _parse_bool(value, default=False):
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 @api_bp.get("/session")
@@ -173,6 +182,7 @@ def list_dnr():
             "display_title": _display_title(row, language),
             "english_name": row["english_name"],
             "japanese_name": row["japanese_name"],
+            "item_type": _get_value(row, "item_type"),
             "created_at": row["created_at"],
         }
         for row in rows
@@ -191,6 +201,8 @@ def add_dnr():
     error = dnr_service.add_item(user_id, manga_id)
     if error:
         return jsonify({"error": error}), 400
+    signals_service.record_event(user_id, "dnr", manga_id)
+    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -202,6 +214,7 @@ def remove_dnr(manga_id):
     error = dnr_service.remove_item(user_id, manga_id)
     if error:
         return jsonify({"error": error}), 400
+    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 @api_bp.get("/reading-list")
@@ -223,6 +236,7 @@ def list_reading_list():
             "display_title": _display_title(row, language),
             "english_name": row["english_name"],
             "japanese_name": row["japanese_name"],
+            "item_type": _get_value(row, "item_type"),
             "created_at": row["created_at"],
         }
         for row in rows
@@ -242,6 +256,8 @@ def add_reading_list():
     error = reading_list_service.add_item(user_id, manga_id, status=status)
     if error:
         return jsonify({"error": error}), 400
+    signals_service.record_event(user_id, "reading_list", manga_id)
+    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -255,6 +271,7 @@ def update_reading_list_status():
     error = reading_list_service.update_status(user_id, manga_id, status)
     if error:
         return jsonify({"error": error}), 400
+    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -266,6 +283,7 @@ def remove_reading_list(manga_id):
     error = reading_list_service.remove_item(user_id, manga_id)
     if error:
         return jsonify({"error": error}), 400
+    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -289,6 +307,7 @@ def list_ratings():
             "display_title": _display_title(row, language),
             "english_name": row["english_name"],
             "japanese_name": row["japanese_name"],
+            "item_type": _get_value(row, "item_type"),
             "rating": row["rating"],
             "recommended_by_us": row["recommended_by_us"],
             "finished_reading": row["finished_reading"],
@@ -324,6 +343,11 @@ def upsert_rating():
     if error:
         return jsonify({"error": error}), 400
 
+    if rating is not None:
+        signals_service.record_event(user_id, "rated", manga_id, rating)
+    if finished_reading:
+        signals_service.record_event(user_id, "finished", manga_id)
+    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -335,6 +359,7 @@ def delete_rating(manga_id):
     error = ratings_service.delete_rating(user_id, manga_id)
     if error:
         return jsonify({"error": error}), 400
+    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -355,6 +380,7 @@ def search_manga():
             "display_title": _display_title(row, language),
             "english_name": row["english_name"],
             "japanese_name": row["japanese_name"],
+            "item_type": row["item_type"],
             "score": row["score"],
             "genres": row["genres"],
             "themes": row["themes"],
@@ -376,6 +402,25 @@ def manga_details():
     return jsonify({"item": dict(row)})
 
 
+@api_bp.post("/events")
+@login_required
+def record_event():
+    user_id = session["user_id"]
+    data = request.get_json(silent=True) or {}
+    event_type = (data.get("event_type") or "").strip().lower()
+    manga_id = (data.get("manga_id") or "").strip()
+    value = data.get("value")
+
+    allowed = {"clicked", "details", "reroll"}
+    if event_type not in allowed:
+        return jsonify({"error": "invalid event_type"}), 400
+
+    signals_service.record_event(user_id, event_type, manga_id or None, value)
+    if event_type in {"clicked", "details"}:
+        signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
+    return jsonify({"ok": True})
+
+
 # Admin endpoints (restricted to avreylavelle)
 @api_bp.post("/admin/switch-user")
 @admin_required
@@ -389,6 +434,16 @@ def admin_switch_user():
         return jsonify({"error": "user not found"}), 404
     session["user_id"] = username
     return jsonify({"ok": True, "user": username})
+
+
+@api_bp.get("/admin/model-snapshot")
+@admin_required
+def admin_model_snapshot():
+    username = (request.args.get("user") or "").strip()
+    if not username:
+        username = session["user_id"]
+    snapshot = signals_service.get_snapshot(username)
+    return jsonify({"snapshot": snapshot})
 
 
 @api_bp.get("/admin/ratings/export")
@@ -441,7 +496,16 @@ def recommendations():
     language = (profile or {}).get("language") or "English"
 
     mode = (request.args.get("mode") or "").strip() or None
-    reroll = (request.args.get("reroll") or "").strip().lower() in {"1", "true", "yes"}
+    reroll = _parse_bool(request.args.get("reroll"))
+    diversify = _parse_bool(request.args.get("diversify"), True)
+    novelty = _parse_bool(request.args.get("novelty"), False)
+    personalize = _parse_bool(request.args.get("personalize"), True)
+    min_year = request.args.get("min_year")
+    try:
+        min_year = int(min_year) if min_year is not None else None
+    except (TypeError, ValueError):
+        min_year = None
+    content_types = _parse_list(request.args.get("content_types"))
     results, used_current = rec_service.recommend_for_user(
         current_app.config["DATABASE"],
         user_id,
@@ -451,6 +515,11 @@ def recommendations():
         update_profile=False,
         mode=mode,
         reroll=reroll,
+        diversify=diversify,
+        novelty=novelty,
+        personalize=personalize,
+        earliest_year=min_year,
+        content_types=content_types,
     )
     items = []
     for item in results or []:
@@ -467,7 +536,16 @@ def recommendations_with_prefs():
     current_genres = _parse_list(data.get("genres"))
     current_themes = _parse_list(data.get("themes"))
     mode = (data.get("mode") or "").strip() or None
-    reroll = bool(data.get("reroll"))
+    reroll = _parse_bool(data.get("reroll"))
+    diversify = _parse_bool(data.get("diversify"), True)
+    novelty = _parse_bool(data.get("novelty"), False)
+    personalize = _parse_bool(data.get("personalize"), True)
+    min_year = data.get("min_year")
+    try:
+        min_year = int(min_year) if min_year is not None else None
+    except (TypeError, ValueError):
+        min_year = None
+    content_types = _parse_list(data.get("content_types"))
 
     # Keep history in sync (this is your "memory")
     if not reroll:
@@ -485,6 +563,11 @@ def recommendations_with_prefs():
         update_profile=True,
         mode=mode,
         reroll=reroll,
+        diversify=diversify,
+        novelty=novelty,
+        personalize=personalize,
+        earliest_year=min_year,
+        content_types=content_types,
     )
     items = []
     for item in results or []:
