@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DNR · Lav Labs Manga</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260127aa" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-row">
+          <div>
+            <h1>Do Not Recommend</h1>
+            <p>Exclude titles you never want to see recommended.</p>
+          </div>
+                  </div>
+                <div class="nav-row">
+<nav class="nav">
+          <a href="{{ base_path }}/dashboard">Dashboard</a>
+          <a href="{{ base_path }}/recommendations">Recommendations</a>
+          <a href="{{ base_path }}/ratings">Ratings</a>
+          <a href="{{ base_path }}/reading-list">Reading List</a>
+          <a href="{{ base_path }}/do-not-recommend" class="active">DNR</a>
+          <a href="{{ base_path }}/profile">Profile</a>
+          <a href="{{ base_path }}/logout">Logout</a>
+        </nav>
+          <div class="user-pill" id="nav-user"></div>
+        </div>
+      </header>
+
+      
+      <section class="card">
+        <h2>Filter DNR</h2>
+        <div class="row">
+          <input id="dnr-filter" type="text" placeholder="filter by title" />
+        </div>
+      </section>
+
+<section class="card">
+        <h2>Add to DNR</h2>
+        <div class="row">
+          <input id="dnr-search" type="text" placeholder="search manga title" />
+          <button id="dnr-search-btn" type="button">Search</button>
+          <div id="dnr-search-status" class="status"></div>
+        </div>
+        <div id="dnr-search-results" class="list"></div>
+      
+        <div class="row">
+          <label class="inline">
+            Sort:
+            <select id="dnr-sort">
+              <option value="chron">Chronological</option>
+              <option value="alpha">Alphabetical</option>
+            </select>
+          </label>
+        </div>
+</section>
+
+      <section class="card">
+        <h2>Your DNR List</h2>
+        <div id="dnr-list" class="list"></div>
+      </section>
+    </main>
+
+    <script>
+      window.BASE_PATH = "{{ base_path }}";
+    </script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260127aa"></script>
+    <script src="{{ url_for('static', filename='dnr.js') }}?v=20260127aa"></script>
+  </body>
+</html>

@@ -32,6 +32,7 @@ def init_db(app):
                 age INTEGER,
                 gender TEXT,
                 language TEXT,
+                ui_prefs TEXT,
                 preferred_genres TEXT,
                 preferred_themes TEXT,
                 password_hash TEXT
@@ -48,11 +49,47 @@ def init_db(app):
                 manga_id TEXT NOT NULL,
                 rating REAL,
                 recommended_by_us INTEGER DEFAULT 0,
+                finished_reading INTEGER DEFAULT 0,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, manga_id)
             )
             """
         )
+
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_dnr'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE user_dnr (
+                user_id TEXT NOT NULL,
+                manga_id TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, manga_id)
+            )
+            """
+        )
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_reading_list'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE user_reading_list (
+                user_id TEXT NOT NULL,
+                manga_id TEXT NOT NULL,
+                status TEXT DEFAULT 'Plan to Read',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, manga_id)
+            )
+            """
+        )
+
+
+    # Add status column if missing (existing DB)
+    cur.execute("PRAGMA table_info(user_reading_list)")
+    reading_cols = {row[1] for row in cur.fetchall()}
+    if "status" not in reading_cols:
+        cur.execute("ALTER TABLE user_reading_list ADD COLUMN status TEXT DEFAULT 'Plan to Read'")
 
     # Add password_hash column if missing (existing DB)
     cur.execute("PRAGMA table_info(users)")
@@ -67,11 +104,23 @@ def init_db(app):
     if "language" not in user_cols:
         cur.execute("ALTER TABLE users ADD COLUMN language TEXT")
 
+
+    # Add ui_prefs column if missing (existing DB)
+    cur.execute("PRAGMA table_info(users)")
+    user_cols = {row[1] for row in cur.fetchall()}
+    if "ui_prefs" not in user_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN ui_prefs TEXT")
     # Add recommended_by_us column if missing (existing DB)
     cur.execute("PRAGMA table_info(user_ratings)")
     rating_cols = {row[1] for row in cur.fetchall()}
     if "recommended_by_us" not in rating_cols:
         cur.execute("ALTER TABLE user_ratings ADD COLUMN recommended_by_us INTEGER DEFAULT 0")
+
+    # Add finished_reading column if missing (existing DB)
+    cur.execute("PRAGMA table_info(user_ratings)")
+    rating_cols = {row[1] for row in cur.fetchall()}
+    if "finished_reading" not in rating_cols:
+        cur.execute("ALTER TABLE user_ratings ADD COLUMN finished_reading INTEGER DEFAULT 0")
     db.commit()
     db.close()
 
@@ -106,6 +155,11 @@ def create_app():
     app.teardown_appcontext(close_db)
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)
+    try:
+        # Warm the options cache so the first page load doesn't pay the cost.
+        rec_service.get_available_options(app.config["DATABASE"])
+    except Exception:
+        pass
 
     @app.route("/")
     def root():
@@ -171,6 +225,22 @@ def create_app():
         if admin_guard:
             return admin_guard
         return render_template("admin.html", base_path=BASE_PATH)
+
+    
+
+    @app.route(f"{BASE_PATH}/do-not-recommend")
+    def do_not_recommend():
+        guard = _require_login()
+        if guard:
+            return guard
+        return render_template("dnr.html", base_path=BASE_PATH)
+
+    @app.route(f"{BASE_PATH}/reading-list")
+    def reading_list():
+        guard = _require_login()
+        if guard:
+            return guard
+        return render_template("reading_list.html", base_path=BASE_PATH)
 
     @app.route(f"{BASE_PATH}/logout")
     def logout():

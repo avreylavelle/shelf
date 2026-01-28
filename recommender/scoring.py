@@ -160,6 +160,11 @@ def score_and_rank(filtered_df, manga_df, profile, current_genres, current_theme
 
     df["combined_score"] = combined_scores
 
-    ranked = df.sort_values("combined_score", ascending = False).head(top_n)
+    ranked = df.sort_values("combined_score", ascending = False)
+    if "title_name" in ranked.columns:
+        ranked = ranked.drop_duplicates(subset=["title_name"], keep="first")
+    elif "id" in ranked.columns:
+        ranked = ranked.drop_duplicates(subset=["id"], keep="first")
+    ranked = ranked.head(top_n)
     return ranked, used_current
     

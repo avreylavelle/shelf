@@ -5,7 +5,7 @@ from utils.parsing import parse_dict
 def get_profile(username):
     db = get_db()
     cur = db.execute(
-        "SELECT username, age, gender, language, preferred_genres, preferred_themes FROM users WHERE username = ?",
+        "SELECT username, age, gender, language, ui_prefs, preferred_genres, preferred_themes FROM users WHERE lower(username) = lower(?)",
         (username,),
     )
     row = cur.fetchone()
@@ -16,6 +16,7 @@ def get_profile(username):
         "age": None if row["age"] is None else int(row["age"]),
         "gender": row["gender"] or "",
         "language": row["language"] or "English",
+        "ui_prefs": parse_dict(row["ui_prefs"]),
         "preferred_genres": parse_dict(row["preferred_genres"]),
         "preferred_themes": parse_dict(row["preferred_themes"]),
     }
@@ -24,7 +25,7 @@ def get_profile(username):
 def update_profile(username, age=None, gender=None, language=None):
     db = get_db()
     db.execute(
-        "UPDATE users SET age = ?, gender = ?, language = ? WHERE username = ?",
+        "UPDATE users SET age = ?, gender = ?, language = ? WHERE lower(username) = lower(?)",
         (age, gender, language, username),
     )
     db.commit()
@@ -33,12 +34,20 @@ def update_profile(username, age=None, gender=None, language=None):
 def update_username(old_username, new_username):
     db = get_db()
     db.execute(
-        "UPDATE users SET username = ? WHERE username = ?",
+        "UPDATE users SET username = ? WHERE lower(username) = lower(?)",
         (new_username, old_username),
     )
     # keep ratings tied to the same person
     db.execute(
-        "UPDATE user_ratings SET user_id = ? WHERE user_id = ?",
+        "UPDATE user_ratings SET user_id = ? WHERE lower(user_id) = lower(?)",
+        (new_username, old_username),
+    )
+    db.execute(
+        "UPDATE user_dnr SET user_id = ? WHERE lower(user_id) = lower(?)",
+        (new_username, old_username),
+    )
+    db.execute(
+        "UPDATE user_reading_list SET user_id = ? WHERE lower(user_id) = lower(?)",
         (new_username, old_username),
     )
     db.commit()
@@ -47,7 +56,7 @@ def update_username(old_username, new_username):
 def set_preferences(username, preferred_genres, preferred_themes):
     db = get_db()
     db.execute(
-        "UPDATE users SET preferred_genres = ?, preferred_themes = ? WHERE username = ?",
+        "UPDATE users SET preferred_genres = ?, preferred_themes = ? WHERE lower(username) = lower(?)",
         (str(preferred_genres), str(preferred_themes), username),
     )
     db.commit()
@@ -55,3 +64,9 @@ def set_preferences(username, preferred_genres, preferred_themes):
 
 def clear_preferences(username):
     set_preferences(username, {}, {})
+
+
+def set_ui_prefs(username, ui_prefs):
+    db = get_db()
+    db.execute("UPDATE users SET ui_prefs = ? WHERE lower(username) = lower(?)", (str(ui_prefs), username))
+    db.commit()
