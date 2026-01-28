@@ -14,7 +14,7 @@ ADMIN_USER = "avreylavelle"  # simple admin gate for now
 
 def _default_db_path():
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-    return os.path.join(root, "Dataset", "manga.db")
+    return os.path.join(root, "data", "db", "manga.db")
 
 
 def init_db(app):

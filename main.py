@@ -1,4 +1,5 @@
-from ui_terminal.tui_menu import main_menu
+from app.app import app
+
 
 if __name__ == "__main__":
-    main_menu()
+    app.run(host="0.0.0.0", port=5000, debug=True)

@@ -3,12 +3,12 @@ import sqlite3
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(THIS_DIR)
-DATASET_DIR = os.path.join(BASE_DIR, "Dataset")
-DB_PATH = os.path.join(DATASET_DIR, "manga.db")
+DATA_DIR = os.path.join(BASE_DIR, "data", "db")
+DB_PATH = os.path.join(DATA_DIR, "manga.db")
 
 
 def get_connection():
-    os.makedirs(DATASET_DIR, exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn

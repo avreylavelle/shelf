@@ -107,7 +107,7 @@ def _resolve_db_path(db_path):
             db_path = os.path.join(base_dir, db_path)
         return os.path.abspath(db_path)
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    return os.path.join(base_dir, "Dataset", "manga.db")
+    return os.path.join(base_dir, "data", "db", "manga.db")
 
 
 def _load_manga_df(db_path):
@@ -135,7 +135,7 @@ def get_available_options(db_path=None):
     return genres, themes
 
 
-def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=20, update_profile=True, mode=None, reroll=False, seed=None, diversify=True, novelty=False, personalize=True, earliest_year=None, content_types=None):
+def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=20, mode=None, reroll=False, seed=None, diversify=True, novelty=False, personalize=True, earliest_year=None, content_types=None):
     db_path = _resolve_db_path(db_path)
     mode = (mode or os.environ.get("RECOMMENDER_MODE", "v3")).lower()
     profile = profile_repo.get_profile(user_id)

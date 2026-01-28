@@ -1,12 +1,12 @@
 # Shelf — Manga Recommender (Content‑Based)
 
 ## Overview
-Shelf is a content‑based manga recommender with **both a web app and a terminal UI**. It runs entirely on **SQLite**, emphasizes **interpretability**, and works without large‑scale collaborative data. The system combines metadata signals (genres, themes, demographics) with user history to rank recommendations.
+Shelf is a content‑based manga recommender with a **web app as the primary interface**. It runs entirely on **SQLite**, emphasizes **interpretability**, and works without large‑scale collaborative data. The system combines metadata signals (genres, themes, demographics) with user history to rank recommendations.
 
 The project currently ships with:
 - **Web app (Flask + JS)** under `/shelf` with login, dashboard, ratings, recommendations, reading list, and DNR.
-- **Terminal UI (TUI)** for the original CLI experience.
-- **SQLite‑backed** data and user profiles, with a repository/service architecture.
+- **SQLite‑backed** data and user profiles.
+- **Legacy CLI/TUI** archived under `legacy/cli` (kept for reference).
 
 ## Key Features
 
@@ -57,11 +57,21 @@ manga_recommender_ml/
     templates/         # HTML pages
     static/            # JS/CSS
   recommender/         # Core scoring + filtering
-  core/                # Shared recommendation entrypoint
-  ui_terminal/         # CLI/TUI interface
-  Dataset/             # SQLite DB + dataset refs
-  utils/               # Parsing/cleaning helpers
-  main.py              # CLI entrypoint
+  utils/               # Parsing/lookup helpers
+  data/                # SQLite DB + dataset refs
+    db/                # Database file(s)
+    raw/               # Raw dataset files (incl. source link)
+    schema.sql         # Schema used for initialization
+  scripts/             # One-off utilities (e.g., DB init)
+  legacy/              # Archived CLI stack (unused)
+    cli/
+      ui_terminal/
+      services/
+      core/
+      data/
+      user/
+      main.py
+  main.py              # Web entrypoint (dev)
   requirements.txt
 ```
 
@@ -74,26 +84,30 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2) Run Terminal UI
+### 2) Run Web App (dev)
 ```
 python main.py
 ```
-
-### 3) Run Web App (dev)
+Or:
 ```
 python app/app.py
 ```
 Then open:
 - `http://localhost:5000/shelf/login`
 
-### 4) Run Web App (prod)
+### 3) Run Web App (prod)
 ```
 gunicorn -w 2 -b 127.0.0.1:5000 app.app:app
 ```
 
+### 4) Legacy CLI (optional)
+```
+python -m legacy.cli.main
+```
+
 ## Configuration
 Environment variables:
-- `MANGA_DB_PATH` — optional path to the SQLite DB (defaults to `Dataset/manga.db`)
+- `MANGA_DB_PATH` — optional path to the SQLite DB (defaults to `data/db/manga.db`)
 - `FLASK_SECRET_KEY` — session secret
 - `RECOMMENDER_MODE` — optional default mode (`v1`, `v2`, `v3`)
 
@@ -104,4 +118,5 @@ Environment variables:
 ## Notes
 - The web app is designed to run under the `/shelf` base path (reverse‑proxy friendly).
 - The system intentionally avoids heavy ML and focuses on interpretable, content‑based ranking.
+- `data/raw/dataset.txt` contains the source link for the dataset.
 - See `todo.txt` for the current roadmap.
