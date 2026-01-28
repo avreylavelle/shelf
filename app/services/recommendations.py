@@ -50,7 +50,7 @@ def get_available_options(db_path=None):
     return genres, themes
 
 
-def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=20, update_profile=True):
+def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=20, update_profile=True, mode=None, reroll=False, seed=None):
     db_path = _resolve_db_path(db_path)
     profile = profile_repo.get_profile(user_id)
     if not profile:
@@ -59,18 +59,18 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
     read_manga = ratings_repo.list_ratings_map(user_id)
     manga_df = _load_manga_df(db_path)
 
-    ranked, used_current = recommendation_scores(
-        manga_df, profile, current_genres, current_themes, read_manga, top_n=limit
-    )
-
-    if ranked is None or ranked.empty:
-        return [], used_current
-
     dnr_ids = set(dnr_service.list_manga_ids(user_id))
     reading_ids = set(reading_list_service.list_manga_ids(user_id))
     exclude_ids = dnr_ids | reading_ids
     if exclude_ids:
-        ranked = ranked[~ranked["title_name"].isin(exclude_ids)]
+        manga_df = manga_df[~manga_df["title_name"].isin(exclude_ids)]
+
+    ranked, used_current = recommendation_scores(
+        manga_df, profile, current_genres, current_themes, read_manga, top_n=limit, mode=mode, reroll=reroll, seed=seed
+    )
+
+    if ranked is None or ranked.empty:
+        return [], used_current
 
     results = []
     for _, row in ranked.iterrows():

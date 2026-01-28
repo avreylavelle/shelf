@@ -1,5 +1,7 @@
 const recommendationsEl = document.getElementById("recommendations");
 const recommendBtn = document.getElementById("recommend-btn");
+const rerollBtn = document.getElementById("reroll-btn");
+const recModeSelect = document.getElementById("rec-mode");
 const genreSelect = document.getElementById("genre-select");
 const themeSelect = document.getElementById("theme-select");
 const addGenreBtn = document.getElementById("add-genre");
@@ -41,6 +43,26 @@ function openRateModal(title, displayTitle) {
 function closeRateModal() {
   if (!rateModal) return;
   rateModal.close();
+}
+
+
+async function loadUiPrefs() {
+  try {
+    const data = await api("/api/ui-prefs");
+    const prefs = data.prefs || {};
+    if (recModeSelect && prefs.recs_mode) {
+      recModeSelect.value = prefs.recs_mode;
+    }
+  } catch (err) {}
+}
+
+async function saveUiPref(key, value) {
+  try {
+    await api("/api/ui-prefs", {
+      method: "PUT",
+      body: JSON.stringify({ [key]: value }),
+    });
+  } catch (err) {}
 }
 
 function setLoading(isLoading) {
@@ -157,15 +179,18 @@ async function loadRatingsMap() {
   state.ratingsMap = data.items || {};
 }
 
-async function fetchRecommendationsWithPrefs() {
+async function fetchRecommendationsWithPrefs(reroll = false) {
   // ONLY fetch on button click (no auto-recs on load)
   setLoading(true);
   try {
+    const mode = recModeSelect ? recModeSelect.value : "v2";
     const data = await api("/api/recommendations", {
       method: "POST",
       body: JSON.stringify({
         genres: state.genres,
         themes: state.themes,
+        mode,
+        reroll,
       }),
     });
     await loadRatingsMap();
@@ -204,6 +229,19 @@ addThemeBtn.addEventListener("click", (event) => {
   event.preventDefault();
   addTheme();
 });
+if (recModeSelect) {
+  recModeSelect.addEventListener("change", () => {
+    saveUiPref("recs_mode", recModeSelect.value);
+  });
+}
+
+if (rerollBtn) {
+  rerollBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    fetchRecommendationsWithPrefs(true);
+  });
+}
+
 recommendBtn.addEventListener("click", (event) => {
   event.preventDefault();
   fetchRecommendationsWithPrefs();
