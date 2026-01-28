@@ -1,0 +1,7 @@
+*
+!.gitignore
+!schema.sql
+!db/
+!db/manga.db
+!raw/
+!raw/dataset.txt

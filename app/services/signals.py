@@ -21,7 +21,7 @@ def _resolve_db_path(db_path):
             db_path = os.path.join(base_dir, db_path)
         return os.path.abspath(db_path)
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    return os.path.join(base_dir, "Dataset", "manga.db")
+    return os.path.join(base_dir, "data", "db", "manga.db")
 
 
 def record_event(user_id, event_type, manga_id=None, value=None):
