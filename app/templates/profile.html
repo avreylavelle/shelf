@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Profile · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260128u" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
   </head>
   <body>
     <main class="page">
@@ -57,6 +57,14 @@
             <div class="chips-label">Preferred themes</div>
             <div id="history-themes" class="chips"></div>
           </div>
+          <div>
+            <div class="chips-label">Blacklist genres</div>
+            <div id="history-blacklist-genres" class="chips"></div>
+          </div>
+          <div>
+            <div class="chips-label">Blacklist themes</div>
+            <div id="history-blacklist-themes" class="chips"></div>
+          </div>
         </div>
         <div class="row">
           <button id="clear-history" class="ghost" type="button">Clear History</button>
@@ -95,6 +103,6 @@
       window.BASE_PATH = "{{ base_path }}";
     </script>
     <script src="{{ url_for('static', filename='common.js') }}?v=20260128u"></script>
-    <script src="{{ url_for('static', filename='profile.js') }}?v=20260128u"></script>
+    <script src="{{ url_for('static', filename='profile.js') }}?v=20260129c"></script>
   </body>
 </html>

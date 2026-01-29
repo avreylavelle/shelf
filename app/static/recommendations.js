@@ -21,12 +21,20 @@ const addGenreBtn = document.getElementById("add-genre");
 const addThemeBtn = document.getElementById("add-theme");
 const selectedGenresEl = document.getElementById("selected-genres");
 const selectedThemesEl = document.getElementById("selected-themes");
+const blacklistGenreSelect = document.getElementById("blacklist-genre-select");
+const blacklistThemeSelect = document.getElementById("blacklist-theme-select");
+const addBlacklistGenreBtn = document.getElementById("add-blacklist-genre");
+const addBlacklistThemeBtn = document.getElementById("add-blacklist-theme");
+const blacklistGenresEl = document.getElementById("blacklist-genres");
+const blacklistThemesEl = document.getElementById("blacklist-themes");
 const loadingEl = document.getElementById("recs-loading");
 
 // Keep a tiny local state, nothing fancy
 const state = {
   genres: [],
   themes: [],
+  blacklistGenres: [],
+  blacklistThemes: [],
   ratingsMap: {},
 };
 
@@ -54,7 +62,7 @@ function openRateModal(title, displayTitle) {
   rateModal.dataset.currentRating = currentRating ?? "";
   rateModalTitle.textContent = displayTitle || title;
   rateModalInput.value = currentRating ?? "";
-  rateModalFlag.checked = true;
+  rateModalFlag.checked = false;
   if (rateModalFinished) rateModalFinished.checked = false;
   rateModal.showModal();
 }
@@ -186,32 +194,8 @@ function selectedTypes() {
 }
 
 
-function topKeys(obj, limit) {
-  const entries = Object.entries(obj || {});
-  entries.sort((a, b) => b[1] - a[1]);
-  return entries.slice(0, limit).map(([key]) => key);
-}
-
-function optionSet(selectEl) {
-  const opts = Array.from(selectEl.options || []);
-  return new Set(opts.map((opt) => opt.value));
-}
-
-async function seedFromHistory() {
-  if (state.genres.length || state.themes.length) return;
-  const data = await api("/api/profile");
-  const profile = data.profile || {};
-  const genreOptions = optionSet(genreSelect);
-  const themeOptions = optionSet(themeSelect);
-  const preferredGenres = topKeys(profile.preferred_genres, 3).filter((g) => genreOptions.has(g));
-  const preferredThemes = topKeys(profile.preferred_themes, 2).filter((t) => themeOptions.has(t));
-  state.genres = preferredGenres;
-  state.themes = preferredThemes;
-  renderChips(selectedGenresEl, state.genres, "genre");
-  renderChips(selectedThemesEl, state.themes, "theme");
-}
-
 function renderChips(container, items, type) {
+  if (!container) return;
   container.innerHTML = items
     .map(
       (item) => `
@@ -237,6 +221,20 @@ function addTheme() {
   renderChips(selectedThemesEl, state.themes, "theme");
 }
 
+function addBlacklistGenre() {
+  const value = blacklistGenreSelect ? blacklistGenreSelect.value : "";
+  if (!value || state.blacklistGenres.includes(value)) return;
+  state.blacklistGenres.push(value);
+  renderChips(blacklistGenresEl, state.blacklistGenres, "blacklist-genre");
+}
+
+function addBlacklistTheme() {
+  const value = blacklistThemeSelect ? blacklistThemeSelect.value : "";
+  if (!value || state.blacklistThemes.includes(value)) return;
+  state.blacklistThemes.push(value);
+  renderChips(blacklistThemesEl, state.blacklistThemes, "blacklist-theme");
+}
+
 async function loadRatingsMap() {
   const data = await api("/api/ratings/map");
   state.ratingsMap = data.items || {};
@@ -251,6 +249,8 @@ async function fetchRecommendationsWithPrefs(reroll = false) {
       body: JSON.stringify({
         genres: state.genres,
         themes: state.themes,
+        blacklist_genres: state.blacklistGenres,
+        blacklist_themes: state.blacklistThemes,
         reroll,
         diversify: diversifyToggle ? diversifyToggle.checked : true,
         novelty: noveltyToggle ? noveltyToggle.checked : false,
@@ -265,7 +265,6 @@ async function fetchRecommendationsWithPrefs(reroll = false) {
     recommendationsEl.innerHTML = `<p class='muted'>${err.message}</p>`;
   } finally {
     setLoading(false);
-seedFromHistory().catch(() => {});
   }
 }
 
@@ -351,6 +350,18 @@ addThemeBtn.addEventListener("click", (event) => {
   event.preventDefault();
   addTheme();
 });
+if (addBlacklistGenreBtn) {
+  addBlacklistGenreBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    addBlacklistGenre();
+  });
+}
+if (addBlacklistThemeBtn) {
+  addBlacklistThemeBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    addBlacklistTheme();
+  });
+}
 if (diversifyToggle) {
   diversifyToggle.addEventListener("change", () => {
     saveUiPref("recs_diversify", diversifyToggle.checked);
@@ -442,6 +453,24 @@ selectedThemesEl.addEventListener("click", (event) => {
   state.themes = state.themes.filter((item) => item !== value);
   renderChips(selectedThemesEl, state.themes, "theme");
 });
+if (blacklistGenresEl) {
+  blacklistGenresEl.addEventListener("click", (event) => {
+    const target = event.target.closest(".chip");
+    if (!target) return;
+    const value = target.dataset.value;
+    state.blacklistGenres = state.blacklistGenres.filter((item) => item !== value);
+    renderChips(blacklistGenresEl, state.blacklistGenres, "blacklist-genre");
+  });
+}
+if (blacklistThemesEl) {
+  blacklistThemesEl.addEventListener("click", (event) => {
+    const target = event.target.closest(".chip");
+    if (!target) return;
+    const value = target.dataset.value;
+    state.blacklistThemes = state.blacklistThemes.filter((item) => item !== value);
+    renderChips(blacklistThemesEl, state.blacklistThemes, "blacklist-theme");
+  });
+}
 
 if (rateModalAdd) {
   rateModalAdd.addEventListener("click", () => {
@@ -581,4 +610,3 @@ recommendationsEl.addEventListener("click", (event) => {
 
 setLoading(false);
 loadUiPrefs().catch(() => {});
-seedFromHistory().catch(() => {});

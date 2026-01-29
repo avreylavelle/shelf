@@ -48,4 +48,11 @@ Notes
 - “Reroll” uses same filters, just reshuffles eligible set.
 - ML should remain optional and transparent; keep baseline recommender.
 
-Reading list does not save sort type on exit, and content types are all off by default
+Recent fixes (Done)
+- Sort preferences persisted for Ratings/DNR/Reading List + content types default to all
+- Rating note (0–10) added in rate modals
+- “Recommended by us” defaults unchecked
+- Added guide section on the Shelf landing page
+- Recommendation reasons reworded to avoid repetitive “Because you liked…”
+- Blacklist selection moved to Recommendations (resets on refresh) + blacklist history tracked
+- Dark mode applied across the site (Monokai‑style dark grey)

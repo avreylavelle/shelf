@@ -7,6 +7,7 @@ from flask import Blueprint, jsonify, request, session, current_app, Response
 
 from app.services import ratings as ratings_service
 from app.services import recommendations as rec_service
+from utils.parsing import parse_list
 from app.services import profile as profile_service
 from app.services import dnr as dnr_service
 from app.services import reading_list as reading_list_service
@@ -390,6 +391,86 @@ def search_manga():
     return jsonify({"items": payload})
 
 
+@api_bp.get("/manga/browse")
+@login_required
+def browse_manga():
+    sort = (request.args.get("sort") or "popularity").strip().lower()
+    genres = _parse_list(request.args.get("genres") or request.args.get("genre"))
+    themes = _parse_list(request.args.get("themes") or request.args.get("theme"))
+    content_types = _parse_list(request.args.get("content_types") or request.args.get("types"))
+    status = (request.args.get("status") or "").strip()
+    min_score = request.args.get("min_score")
+    limit = request.args.get("limit") or 50
+
+    try:
+        limit = int(limit)
+    except (TypeError, ValueError):
+        limit = 50
+    limit = max(1, min(limit, 200))
+
+    min_score_val = None
+    if min_score not in (None, ""):
+        try:
+            min_score_val = float(min_score)
+        except (TypeError, ValueError):
+            min_score_val = None
+
+    db_path = rec_service._resolve_db_path(current_app.config["DATABASE"])
+    df = rec_service._load_manga_df(db_path).copy()
+
+    df["genres"] = df["genres"].apply(parse_list)
+    df["themes"] = df["themes"].apply(parse_list)
+
+    if genres:
+        df = df[df["genres"].apply(lambda values: any(g in values for g in genres))]
+    if themes:
+        df = df[df["themes"].apply(lambda values: any(t in values for t in themes))]
+
+    if content_types:
+        allowed = {str(t).strip() for t in content_types if str(t).strip()}
+        if allowed:
+            df = df[df["item_type"].isin(allowed)]
+
+    if min_score_val is not None:
+        df = df[df["score"].fillna(0) >= min_score_val]
+
+    if status:
+        df = df[df["status"].fillna("").str.lower() == status.lower()]
+
+    sort_map = {
+        "popularity": ("popularity", True),
+        "score": ("score", False),
+        "members": ("members", False),
+        "favorited": ("favorited", False),
+    }
+    sort_key, ascending = sort_map.get(sort, ("popularity", True))
+    if sort_key in df.columns:
+        df = df.sort_values(by=sort_key, ascending=ascending, na_position="last")
+
+    profile = profile_service.get_profile(session["user_id"])
+    language = (profile or {}).get("language") or "English"
+
+    payload = []
+    for _, row in df.head(limit).iterrows():
+        item = {
+            "id": row.get("id"),
+            "title": row.get("title_name"),
+            "display_title": _display_title(row, language),
+            "english_name": row.get("english_name"),
+            "japanese_name": row.get("japanese_name"),
+            "item_type": row.get("item_type"),
+            "score": row.get("score"),
+            "popularity": row.get("popularity"),
+            "members": row.get("members"),
+            "favorited": row.get("favorited"),
+            "genres": row.get("genres"),
+            "themes": row.get("themes"),
+        }
+        payload.append(_sanitize_item(item))
+
+    return jsonify({"items": payload})
+
+
 @api_bp.get("/manga/details")
 @login_required
 def manga_details():
@@ -506,6 +587,8 @@ def recommendations():
     except (TypeError, ValueError):
         min_year = None
     content_types = _parse_list(request.args.get("content_types"))
+    blacklist_genres = _parse_list(request.args.get("blacklist_genres"))
+    blacklist_themes = _parse_list(request.args.get("blacklist_themes"))
     results, used_current = rec_service.recommend_for_user(
         current_app.config["DATABASE"],
         user_id,
@@ -519,6 +602,8 @@ def recommendations():
         personalize=personalize,
         earliest_year=min_year,
         content_types=content_types,
+        blacklist_genres=blacklist_genres,
+        blacklist_themes=blacklist_themes,
     )
     items = []
     for item in results or []:
@@ -534,6 +619,8 @@ def recommendations_with_prefs():
     data = request.get_json(silent=True) or {}
     current_genres = _parse_list(data.get("genres"))
     current_themes = _parse_list(data.get("themes"))
+    blacklist_genres = _parse_list(data.get("blacklist_genres"))
+    blacklist_themes = _parse_list(data.get("blacklist_themes"))
     mode = (data.get("mode") or "").strip() or None
     reroll = _parse_bool(data.get("reroll"))
     diversify = _parse_bool(data.get("diversify"), True)
@@ -549,6 +636,7 @@ def recommendations_with_prefs():
     # Keep history in sync (this is your "memory")
     if not reroll:
         profile_service.increment_preferences(user_id, current_genres, current_themes)
+        profile_service.increment_blacklist_history(user_id, blacklist_genres, blacklist_themes)
 
     profile = profile_service.get_profile(user_id)
     language = (profile or {}).get("language") or "English"
@@ -566,6 +654,8 @@ def recommendations_with_prefs():
         personalize=personalize,
         earliest_year=min_year,
         content_types=content_types,
+        blacklist_genres=blacklist_genres,
+        blacklist_themes=blacklist_themes,
     )
     items = []
     for item in results or []:

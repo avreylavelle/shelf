@@ -2,15 +2,25 @@ from app.db import get_db
 from utils.parsing import parse_dict
 
 
+def _coerce_counts(value):
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, list):
+        return {item: 1 for item in value}
+    return {}
+
+
 def get_profile(username):
     db = get_db()
     cur = db.execute(
-        "SELECT username, age, gender, language, ui_prefs, preferred_genres, preferred_themes, signal_genres, signal_themes FROM users WHERE lower(username) = lower(?)",
+        "SELECT username, age, gender, language, ui_prefs, preferred_genres, preferred_themes, signal_genres, signal_themes, blacklist_genres, blacklist_themes FROM users WHERE lower(username) = lower(?)",
         (username,),
     )
     row = cur.fetchone()
     if row is None:
         return None
+    blacklist_genres = _coerce_counts(parse_dict(row["blacklist_genres"]))
+    blacklist_themes = _coerce_counts(parse_dict(row["blacklist_themes"]))
     return {
         "username": row["username"],
         "age": None if row["age"] is None else int(row["age"]),
@@ -21,6 +31,8 @@ def get_profile(username):
         "preferred_themes": parse_dict(row["preferred_themes"]),
         "signal_genres": parse_dict(row["signal_genres"]),
         "signal_themes": parse_dict(row["signal_themes"]),
+        "blacklist_genres": blacklist_genres,
+        "blacklist_themes": blacklist_themes,
     }
 
 
@@ -68,6 +80,15 @@ def clear_preferences(username):
     set_preferences(username, {}, {})
 
 
+def clear_history(username):
+    db = get_db()
+    db.execute(
+        "UPDATE users SET preferred_genres = ?, preferred_themes = ?, blacklist_genres = ?, blacklist_themes = ? WHERE lower(username) = lower(?)",
+        ("{}", "{}", "{}", "{}", username),
+    )
+    db.commit()
+
+
 def set_ui_prefs(username, ui_prefs):
     db = get_db()
     db.execute("UPDATE users SET ui_prefs = ? WHERE lower(username) = lower(?)", (str(ui_prefs), username))
@@ -79,5 +100,14 @@ def set_signal_affinities(username, signal_genres, signal_themes):
     db.execute(
         "UPDATE users SET signal_genres = ?, signal_themes = ? WHERE lower(username) = lower(?)",
         (str(signal_genres), str(signal_themes), username),
+    )
+    db.commit()
+
+
+def set_blacklist_history(username, blacklist_genres, blacklist_themes):
+    db = get_db()
+    db.execute(
+        "UPDATE users SET blacklist_genres = ?, blacklist_themes = ? WHERE lower(username) = lower(?)",
+        (str(blacklist_genres), str(blacklist_themes), username),
     )
     db.commit()

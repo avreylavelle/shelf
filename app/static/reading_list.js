@@ -28,7 +28,7 @@ function openRateModal(title, displayTitle) {
   rateModal.dataset.display = displayTitle || title;
   rateModalTitle.textContent = displayTitle || title;
   rateModalInput.value = "";
-  rateModalFlag.checked = true;
+  rateModalFlag.checked = false;
   if (rateModalFinished) rateModalFinished.checked = false;
   rateModal.showModal();
 }

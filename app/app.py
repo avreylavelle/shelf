@@ -35,6 +35,8 @@ def init_db(app):
                 ui_prefs TEXT,
                 preferred_genres TEXT,
                 preferred_themes TEXT,
+                blacklist_genres TEXT,
+                blacklist_themes TEXT,
                 password_hash TEXT
             )
             """
@@ -133,6 +135,14 @@ def init_db(app):
         cur.execute("ALTER TABLE users ADD COLUMN signal_genres TEXT")
     if "signal_themes" not in user_cols:
         cur.execute("ALTER TABLE users ADD COLUMN signal_themes TEXT")
+
+    # Add blacklist columns if missing (existing DB)
+    cur.execute("PRAGMA table_info(users)")
+    user_cols = {row[1] for row in cur.fetchall()}
+    if "blacklist_genres" not in user_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN blacklist_genres TEXT")
+    if "blacklist_themes" not in user_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN blacklist_themes TEXT")
     # Add recommended_by_us column if missing (existing DB)
     cur.execute("PRAGMA table_info(user_ratings)")
     rating_cols = {row[1] for row in cur.fetchall()}
@@ -216,7 +226,8 @@ def create_app():
         guard = _require_login()
         if guard:
             return guard
-        return render_template("profile.html", base_path=BASE_PATH)
+        genres, themes = rec_service.get_available_options(app.config["DATABASE"])
+        return render_template("profile.html", base_path=BASE_PATH, genres=genres, themes=themes)
 
     @app.route(f"{BASE_PATH}/ratings")
     def ratings():
@@ -224,6 +235,14 @@ def create_app():
         if guard:
             return guard
         return render_template("ratings.html", base_path=BASE_PATH)
+
+    @app.route(f"{BASE_PATH}/search")
+    def search():
+        guard = _require_login()
+        if guard:
+            return guard
+        genres, themes = rec_service.get_available_options(app.config["DATABASE"])
+        return render_template("search.html", base_path=BASE_PATH, genres=genres, themes=themes)
 
     @app.route(f"{BASE_PATH}/recommendations")
     def recommendations():

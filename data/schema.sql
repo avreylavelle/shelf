@@ -2,8 +2,15 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT PRIMARY KEY,
     age INTEGER,
     gender TEXT,
+    language TEXT,
+    ui_prefs TEXT,
     preferred_genres TEXT,
-    preferred_themes TEXT
+    preferred_themes TEXT,
+    blacklist_genres TEXT,
+    blacklist_themes TEXT,
+    signal_genres TEXT,
+    signal_themes TEXT,
+    password_hash TEXT
 );
 
 CREATE TABLE IF NOT EXISTS user_ratings (
