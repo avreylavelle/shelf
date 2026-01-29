@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Ratings · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260128u" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
   </head>
   <body>
     <main class="page">
@@ -32,18 +32,6 @@
           <button class="ghost ratings-types-open" type="button">Content types</button>
         </div>
       </section>
-
-      <section class="card">
-        <h2>Add a Rating</h2>
-        <div class="row">
-          <input id="rating-search" type="text" placeholder="search manga title" />
-          <button id="rating-search-btn" type="button">Search</button>
-          <button class="ghost ratings-types-open" type="button">Content types</button>
-          <div id="rating-search-status" class="status"></div>
-        </div>
-        <div id="rating-search-results" class="list"></div>
-      </section>
-
       <section class="card">
         <div class="row">
           <label class="inline">
@@ -95,9 +83,10 @@
       <div class="row">
         <input id="rate-modal-input" type="number" min="0" max="10" step="0.1" placeholder="rating" />
       </div>
+      <div class="muted">Rating (0–10)</div>
       <div class="row">
         <label class="inline flag-line">
-          <input id="rate-modal-flag" type="checkbox" checked />
+          <input id="rate-modal-flag" type="checkbox" />
           Recommended by us
         </label>
       </div>
@@ -113,6 +102,6 @@
         <button id="rate-modal-add" type="button">Add</button>
       </div>
     </dialog>
-    <script src="{{ url_for('static', filename='ratings.js') }}?v=20260128x"></script>
+    <script src="{{ url_for('static', filename='ratings.js') }}?v=20260129b"></script>
   </body>
 </html>

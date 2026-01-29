@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dashboard · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260128u" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
   </head>
   <body>
     <main class="page">
@@ -27,6 +27,11 @@
       </header>
 
             <section class="grid">
+        <section class="card dashboard-card">
+          <h2>Search</h2>
+          <p>Find titles and add them to your lists.</p>
+          <a class="cta" href="{{ base_path }}/search">Go to Search</a>
+        </section>
         <section class="card dashboard-card">
           <h2>Recommendations</h2>
           <p>Use genres/themes and get full scored recommendations.</p>

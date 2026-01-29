@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>DNR · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260128u" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
   </head>
   <body>
     <main class="page">
@@ -29,20 +29,6 @@
         <div class="row">
           <input id="dnr-filter" type="text" placeholder="filter by title" />
           <button class="ghost dnr-types-open" type="button">Content types</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Add to DNR</h2>
-        <div class="row">
-          <input id="dnr-search" type="text" placeholder="search manga title" />
-          <button id="dnr-search-btn" type="button">Search</button>
-          <button class="ghost dnr-types-open" type="button">Content types</button>
-          <div id="dnr-search-status" class="status"></div>
-        </div>
-        <div id="dnr-search-results" class="list"></div>
-      
-        <div class="row">
           <label class="inline">
             Sort:
             <select id="dnr-sort">
@@ -51,7 +37,7 @@
             </select>
           </label>
         </div>
-</section>
+      </section>
 
       <section class="card">
         <h2>Your DNR List</h2>
@@ -85,6 +71,6 @@
         <button id="dnr-types-save" type="button">Save</button>
       </div>
     </dialog>
-    <script src="{{ url_for('static', filename='dnr.js') }}?v=20260128x"></script>
+    <script src="{{ url_for('static', filename='dnr.js') }}?v=20260129a"></script>
   </body>
 </html>

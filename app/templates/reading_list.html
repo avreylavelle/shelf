@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Reading List · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260128u" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
   </head>
   <body>
     <main class="page">
@@ -37,20 +37,6 @@
             </select>
           </label>
           <button class="ghost reading-types-open" type="button">Content types</button>
-        </div>
-      </section>
-
-      <section class="card">
-        <h2>Add to Reading List</h2>
-        <div class="row">
-          <input id="reading-search" type="text" placeholder="search manga title" />
-          <button id="reading-search-btn" type="button">Search</button>
-          <button class="ghost reading-types-open" type="button">Content types</button>
-          <div id="reading-search-status" class="status"></div>
-        </div>
-        <div id="reading-search-results" class="list"></div>
-      
-        <div class="row">
           <label class="inline">
             Sort:
             <select id="reading-sort">
@@ -59,7 +45,7 @@
             </select>
           </label>
         </div>
-</section>
+      </section>
 
       <section class="card">
         <h2>Your Reading List</h2>
@@ -100,9 +86,10 @@
       <div class="row">
         <input id="rate-modal-input" type="number" min="0" max="10" step="0.1" placeholder="rating" />
       </div>
+      <div class="muted">Rating (0–10)</div>
       <div class="row">
         <label class="inline flag-line">
-          <input id="rate-modal-flag" type="checkbox" checked />
+          <input id="rate-modal-flag" type="checkbox" />
           Recommended by us
         </label>
       </div>
@@ -117,6 +104,6 @@
         <button id="rate-modal-add" type="button">Add</button>
       </div>
     </dialog>
-    <script src="{{ url_for('static', filename='reading_list.js') }}?v=20260128x"></script>
+    <script src="{{ url_for('static', filename='reading_list.js') }}?v=20260129b"></script>
   </body>
 </html>

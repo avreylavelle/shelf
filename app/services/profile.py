@@ -32,7 +32,7 @@ def change_username(old_username, new_username):
 
 
 def clear_history(username):
-    profile_repo.clear_preferences(_normalize(username))
+    profile_repo.clear_history(_normalize(username))
 
 
 def increment_preferences(username, current_genres, current_themes):
@@ -65,3 +65,24 @@ def get_ui_prefs(username):
 
 def set_signal_affinities(username, signal_genres, signal_themes):
     profile_repo.set_signal_affinities(_normalize(username), signal_genres, signal_themes)
+
+
+def increment_blacklist_history(username, blacklist_genres, blacklist_themes):
+    profile = profile_repo.get_profile(_normalize(username))
+    if not profile:
+        return
+
+    blacklist_genres = blacklist_genres or []
+    blacklist_themes = blacklist_themes or []
+    if not blacklist_genres and not blacklist_themes:
+        return
+
+    genre_history = dict(profile.get("blacklist_genres", {}))
+    theme_history = dict(profile.get("blacklist_themes", {}))
+
+    for genre in blacklist_genres:
+        genre_history[genre] = genre_history.get(genre, 0) + 1
+    for theme in blacklist_themes:
+        theme_history[theme] = theme_history.get(theme, 0) + 1
+
+    profile_repo.set_blacklist_history(_normalize(username), genre_history, theme_history)

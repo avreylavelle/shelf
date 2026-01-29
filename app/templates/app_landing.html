@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Shelf · Manga Recommender</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260128u" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
   </head>
   <body>
     <main class="page">
@@ -17,6 +17,18 @@
         <h2>Get Started</h2>
         <p class="muted">Go to your dashboard to manage ratings and recommendations.</p>
         <a class="cta" href="{{ base_path }}/dashboard">Go to Dashboard</a>
+      </section>
+
+      <section class="card">
+        <h2>How Shelf Works</h2>
+        <div class="stack">
+          <div><strong>Search</strong>: Find titles and add them to Ratings, Reading List, or DNR.</div>
+          <div><strong>Recommendations</strong>: Get tailored suggestions and tweak filters.</div>
+          <div><strong>Ratings</strong>: Track what you’ve scored and update details.</div>
+          <div><strong>Reading List</strong>: Manage planned and in‑progress reads.</div>
+          <div><strong>DNR</strong>: Exclude titles you never want to see.</div>
+          <div><strong>Navigation</strong>: Use the Dashboard tiles to move around the site.</div>
+        </div>
       </section>
     </main>
   </body>

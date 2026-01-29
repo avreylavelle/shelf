@@ -78,7 +78,7 @@ function filterByType(items) {
   return items.filter((item) => !item.item_type || typeSet.has(item.item_type));
 }
 
-function openRateModal(title, displayTitle, rating = "", recommended = true, finished = false) {
+function openRateModal(title, displayTitle, rating = "", recommended = false, finished = false) {
   if (!rateModal) return;
   rateModal.dataset.title = title;
   rateModal.dataset.display = displayTitle || title;

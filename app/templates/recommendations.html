@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Recommendations · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260128m" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
   </head>
   <body>
     <main class="page">
@@ -55,6 +55,36 @@
           </div>
         </div>
 
+        <p class="muted">Optional: blacklist genres/themes to exclude from results (this resets on refresh).</p>
+        <div class="grid">
+          <div>
+            <div class="row">
+              <select id="blacklist-genre-select">
+                <option value="">Select a genre</option>
+                {% for genre in genres %}
+                <option value="{{ genre }}">{{ genre }}</option>
+                {% endfor %}
+              </select>
+              <button id="add-blacklist-genre" class="ghost" type="button">Blacklist Genre</button>
+            </div>
+            <div class="chips-label">Blacklisted genres</div>
+            <div id="blacklist-genres" class="chips"></div>
+          </div>
+          <div>
+            <div class="row">
+              <select id="blacklist-theme-select">
+                <option value="">Select a theme</option>
+                {% for theme in themes %}
+                <option value="{{ theme }}">{{ theme }}</option>
+                {% endfor %}
+              </select>
+              <button id="add-blacklist-theme" class="ghost" type="button">Blacklist Theme</button>
+            </div>
+            <div class="chips-label">Blacklisted themes</div>
+            <div id="blacklist-themes" class="chips"></div>
+          </div>
+        </div>
+
         <div class="row">
           <button id="recommend-btn" type="button">Get Recommendations</button>
           <button id="reroll-btn" class="ghost" type="button">Reroll</button>
@@ -79,9 +109,10 @@
       <div class="row">
         <input id="rate-modal-input" type="number" min="0" max="10" step="0.1" placeholder="rating" />
       </div>
+      <div class="muted">Rating (0–10)</div>
       <div class="row">
         <label class="inline flag-line">
-          <input id="rate-modal-flag" type="checkbox" checked />
+          <input id="rate-modal-flag" type="checkbox" />
           Recommended by us
         </label>
       </div>
@@ -165,6 +196,6 @@
       </div>
     </dialog>
 
-    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260128x"></script>
+    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260129c"></script>
   </body>
 </html>

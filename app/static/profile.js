@@ -11,6 +11,8 @@ const deleteAccountBtn = document.getElementById("delete-account");
 const statusEl = document.getElementById("profile-status");
 const historyGenresEl = document.getElementById("history-genres");
 const historyThemesEl = document.getElementById("history-themes");
+const historyBlacklistGenresEl = document.getElementById("history-blacklist-genres");
+const historyBlacklistThemesEl = document.getElementById("history-blacklist-themes");
 
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
@@ -18,6 +20,7 @@ function setStatus(text, isError = false) {
 }
 
 function renderHistory(container, items) {
+  if (!container) return;
   const entries = Object.entries(items || {});
   if (!entries.length) {
     container.innerHTML = "<span class='muted'>None yet</span>";
@@ -38,6 +41,8 @@ async function loadProfile() {
   if (profileLanguage) profileLanguage.value = profile.language || "English";
   renderHistory(historyGenresEl, profile.preferred_genres);
   renderHistory(historyThemesEl, profile.preferred_themes);
+  renderHistory(historyBlacklistGenresEl, profile.blacklist_genres);
+  renderHistory(historyBlacklistThemesEl, profile.blacklist_themes);
 }
 
 async function saveProfile() {

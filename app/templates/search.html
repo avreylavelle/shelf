@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search · Lav Labs Manga</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-row">
+          <div>
+            <h1>Search</h1>
+            <p>Find titles and add them to ratings, reading list, or DNR.</p>
+          </div>
+        </div>
+        <div class="nav-row">
+          <nav class="nav">
+            <a href="{{ base_path }}/dashboard">Dashboard</a>
+          </nav>
+          <div class="user-pill" id="nav-user"></div>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>Search Manga</h2>
+        <div class="row">
+          <input id="search-input" type="text" placeholder="search manga title" />
+          <button id="search-btn" type="button">Search</button>
+          <button class="ghost search-types-open" type="button">Content types</button>
+          <div id="search-status" class="status"></div>
+        </div>
+        <div id="search-results" class="list"></div>
+      </section>
+
+      <section class="card">
+        <h2>Browse</h2>
+        <p class="muted">Browse by popularity or filter by genres and themes.</p>
+        <div class="row">
+          <label class="inline">
+            Sort:
+            <select id="browse-sort">
+              <option value="popularity">Popularity</option>
+              <option value="score">Score</option>
+              <option value="members">Members</option>
+              <option value="favorited">Favorites</option>
+            </select>
+          </label>
+          <label class="inline">
+            Min score
+            <input id="browse-min-score" type="number" min="0" max="10" step="0.1" placeholder="0" />
+          </label>
+          <label class="inline">
+            Status
+            <select id="browse-status">
+              <option value="">Any</option>
+              <option value="Publishing">Publishing</option>
+              <option value="Finished">Finished</option>
+              <option value="On Hiatus">On Hiatus</option>
+              <option value="Discontinued">Discontinued</option>
+            </select>
+          </label>
+          <button class="ghost search-types-open" type="button">Content types</button>
+          <button id="browse-btn" type="button">Browse</button>
+        </div>
+        <div class="row">
+          <select id="browse-genre-select">
+            <option value="">Select a genre</option>
+            {% for genre in genres %}
+            <option value="{{ genre }}">{{ genre }}</option>
+            {% endfor %}
+          </select>
+          <button id="browse-add-genre" type="button">Add Genre</button>
+        </div>
+        <div id="browse-genres" class="chips"></div>
+        <div class="row">
+          <select id="browse-theme-select">
+            <option value="">Select a theme</option>
+            {% for theme in themes %}
+            <option value="{{ theme }}">{{ theme }}</option>
+            {% endfor %}
+          </select>
+          <button id="browse-add-theme" type="button">Add Theme</button>
+        </div>
+        <div id="browse-themes" class="chips"></div>
+        <div id="browse-results" class="list"></div>
+      </section>
+    </main>
+
+    <script>
+      window.BASE_PATH = "{{ base_path }}";
+    </script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260128u"></script>
+
+    <dialog id="search-types-modal" class="modal">
+      <h3>Content types</h3>
+      <div class="stack">
+        <div class="row">
+          <button id="search-types-all" class="ghost" type="button">Select all</button>
+          <button id="search-types-none" class="ghost" type="button">Remove all</button>
+        </div>
+        <div class="options-grid">
+          <label class="inline"><input type="checkbox" class="type-option" value="Manga" /> Manga</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Light Novel" /> Light Novel</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="One-shot" /> One-shot</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Manhwa" /> Manhwa</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Doujinshi" /> Doujinshi</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Manhua" /> Manhua</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Novel" /> Novel</label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="search-types-cancel" class="ghost" type="button">Cancel</button>
+        <button id="search-types-save" type="button">Save</button>
+      </div>
+    </dialog>
+
+    <dialog id="add-modal" class="modal">
+      <h3 id="add-modal-title">Add</h3>
+      <div class="stack">
+        <button id="add-rate" type="button">Rate</button>
+        <button id="add-reading" class="ghost" type="button">Reading List</button>
+        <button id="add-dnr" class="ghost" type="button">DNR</button>
+      </div>
+      <div class="modal-actions">
+        <button id="add-close" class="ghost" type="button">Cancel</button>
+      </div>
+    </dialog>
+
+    <dialog id="rate-modal" class="modal">
+      <h3 id="rate-modal-title">Rate</h3>
+      <div class="row">
+        <input id="rate-modal-input" type="number" min="0" max="10" step="0.1" placeholder="rating" />
+      </div>
+      <div class="muted">Rating (0–10)</div>
+      <div class="row">
+        <label class="inline flag-line">
+          <input id="rate-modal-flag" type="checkbox" />
+          Recommended by us
+        </label>
+      </div>
+      <div class="row">
+        <label class="inline flag-line">
+          <input id="rate-modal-finished" type="checkbox" />
+          Finished reading
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="rate-modal-close" class="ghost" type="button">Cancel</button>
+        <button id="rate-modal-add" type="button">Add</button>
+      </div>
+    </dialog>
+
+    <script src="{{ url_for('static', filename='search.js') }}?v=20260129e"></script>
+  </body>
+</html>
