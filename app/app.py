@@ -101,6 +101,88 @@ def init_db(app):
             """
         )
 
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='manga_stats'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE manga_stats (
+                mal_id INTEGER PRIMARY KEY,
+                link TEXT,
+                title_name TEXT,
+                score REAL,
+                scored_by REAL,
+                ranked REAL,
+                popularity REAL,
+                members REAL,
+                favorited REAL,
+                synonymns TEXT,
+                japanese_name TEXT,
+                english_name TEXT,
+                german_name TEXT,
+                french_name TEXT,
+                spanish_name TEXT,
+                item_type TEXT,
+                volumes TEXT,
+                chapters TEXT,
+                status TEXT,
+                publishing_date TEXT,
+                authors TEXT,
+                serialization TEXT,
+                genres TEXT,
+                themes TEXT,
+                demographic TEXT,
+                description TEXT,
+                background TEXT
+            )
+            """
+        )
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='manga_core'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE manga_core (
+                id TEXT PRIMARY KEY,
+                link TEXT,
+                title_name TEXT,
+                english_name TEXT,
+                japanese_name TEXT,
+                synonymns TEXT,
+                item_type TEXT,
+                volumes TEXT,
+                chapters TEXT,
+                status TEXT,
+                publishing_date TEXT,
+                authors TEXT,
+                serialization TEXT,
+                genres TEXT,
+                themes TEXT,
+                demographic TEXT,
+                description TEXT,
+                content_rating TEXT,
+                original_language TEXT,
+                cover_url TEXT,
+                links TEXT,
+                updated_at TEXT
+            )
+            """
+        )
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='manga_map'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE manga_map (
+                mangadex_id TEXT PRIMARY KEY,
+                mal_id INTEGER,
+                match_method TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_manga_map_mal_id ON manga_map (mal_id)")
+
 
     # Add status column if missing (existing DB)
     cur.execute("PRAGMA table_info(user_reading_list)")
@@ -154,6 +236,45 @@ def init_db(app):
     rating_cols = {row[1] for row in cur.fetchall()}
     if "finished_reading" not in rating_cols:
         cur.execute("ALTER TABLE user_ratings ADD COLUMN finished_reading INTEGER DEFAULT 0")
+
+    cur.execute(
+        """
+        CREATE VIEW IF NOT EXISTS manga_merged AS
+        SELECT
+            core.id AS mangadex_id,
+            core.link,
+            core.title_name,
+            core.english_name,
+            core.japanese_name,
+            core.synonymns,
+            core.item_type,
+            core.volumes,
+            core.chapters,
+            core.status,
+            core.publishing_date,
+            core.authors,
+            core.serialization,
+            core.genres,
+            core.themes,
+            core.demographic,
+            core.description,
+            core.content_rating,
+            core.original_language,
+            core.cover_url,
+            core.links,
+            core.updated_at,
+            stats.mal_id,
+            stats.score,
+            stats.scored_by,
+            stats.ranked,
+            stats.popularity,
+            stats.members,
+            stats.favorited
+        FROM manga_core AS core
+        LEFT JOIN manga_map AS map ON map.mangadex_id = core.id
+        LEFT JOIN manga_stats AS stats ON stats.mal_id = map.mal_id
+        """
+    )
     db.commit()
     db.close()
 
