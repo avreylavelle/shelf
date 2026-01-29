@@ -2,6 +2,6 @@
 !.gitignore
 !schema.sql
 !db/
-!db/manga.db
+!db/.gitkeep
 !raw/
 !raw/dataset.txt
