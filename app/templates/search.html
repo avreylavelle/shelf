@@ -31,7 +31,8 @@
           <button class="ghost search-types-open" type="button">Content types</button>
           <div id="search-status" class="status"></div>
         </div>
-        <div id="search-results" class="list"></div>
+        <div id="search-loading" class="loading" aria-live="polite" aria-busy="false">Searching…</div>
+        <div id="search-results" class="results-grid"></div>
       </section>
 
       <section class="card">
@@ -84,7 +85,8 @@
           <button id="browse-add-theme" type="button">Add Theme</button>
         </div>
         <div id="browse-themes" class="chips"></div>
-        <div id="browse-results" class="list"></div>
+        <div id="browse-loading" class="loading" aria-live="polite" aria-busy="false">Loading…</div>
+        <div id="browse-results" class="results-grid"></div>
       </section>
     </main>
 
@@ -148,6 +150,6 @@
       </div>
     </dialog>
 
-    <script src="{{ url_for('static', filename='search.js') }}?v=20260129f"></script>
+    <script src="{{ url_for('static', filename='search.js') }}?v=20260129h"></script>
   </body>
 </html>

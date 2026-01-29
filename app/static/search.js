@@ -2,6 +2,7 @@ const searchInput = document.getElementById("search-input");
 const searchBtn = document.getElementById("search-btn");
 const searchStatus = document.getElementById("search-status");
 const searchResults = document.getElementById("search-results");
+const searchLoading = document.getElementById("search-loading");
 
 const browseBtn = document.getElementById("browse-btn");
 const browseResults = document.getElementById("browse-results");
@@ -14,6 +15,7 @@ const browseThemesEl = document.getElementById("browse-themes");
 const browseSort = document.getElementById("browse-sort");
 const browseMinScore = document.getElementById("browse-min-score");
 const browseStatus = document.getElementById("browse-status");
+const browseLoading = document.getElementById("browse-loading");
 
 const typesButtons = Array.from(document.querySelectorAll(".search-types-open"));
 const typesModal = document.getElementById("search-types-modal");
@@ -60,6 +62,12 @@ function setStatus(text, isError = false) {
   if (!searchStatus) return;
   searchStatus.textContent = text;
   searchStatus.className = isError ? "status error" : "status";
+}
+
+function setLoading(el, isLoading) {
+  if (!el) return;
+  el.style.display = isLoading ? "inline-flex" : "none";
+  el.setAttribute("aria-busy", String(isLoading));
 }
 
 function selectedTypes() {
@@ -143,11 +151,11 @@ function closeRateModal() {
 
 function removeItemEverywhere(mangaId) {
   if (searchResults) {
-    const el = searchResults.querySelector(`.list-item[data-id="${cssEscape(mangaId)}"]`);
+    const el = searchResults.querySelector(`.result-card[data-id="${cssEscape(mangaId)}"]`);
     if (el) el.remove();
   }
   if (browseResults) {
-    const el = browseResults.querySelector(`.list-item[data-id="${cssEscape(mangaId)}"]`);
+    const el = browseResults.querySelector(`.result-card[data-id="${cssEscape(mangaId)}"]`);
     if (el) el.remove();
   }
   state.searchItems = state.searchItems.filter((item) => item.id !== mangaId);
@@ -162,20 +170,26 @@ function renderList(container, items) {
   }
   container.innerHTML = items
     .map(
-      (item) => `
-        <div class="list-item" data-id="${item.id}" data-display="${item.display_title || item.title}">
-          <div>
-            <strong>${item.display_title || item.title}</strong>
-            <div class="muted">Score: ${item.score ?? "n/a"}</div>
-            ${getLocations(item.id).length ? `<div class="badge">Currently in: ${getLocations(item.id).join(", ")}</div>` : ""}
-            <div class="details" data-details="${item.id}"></div>
-          </div>
-          <div class="row">
+      (item) => {
+        const title = item.display_title || item.title;
+        const cover = item.cover_url
+          ? `<img class="result-cover" src="${item.cover_url}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
+          : `<div class="result-cover placeholder"></div>`;
+        const locations = getLocations(item.id);
+        return `
+        <div class="result-card" data-id="${item.id}" data-display="${title}">
+          <strong>${title}</strong>
+          ${cover}
+          <div class="muted">Score: ${item.score ?? "n/a"}</div>
+          ${locations.length ? `<div class="badge">Currently in: ${locations.join(", ")}</div>` : ""}
+          <div class="details" data-details="${item.id}"></div>
+          <div class="result-actions">
             <button class="details-btn" data-id="${item.id}" type="button">Details</button>
-            <button class="add-open" data-id="${item.id}" data-display="${item.display_title || item.title}" type="button">Add</button>
+            <button class="add-open" data-id="${item.id}" data-display="${title}" type="button">Add</button>
           </div>
         </div>
-      `
+      `;
+      }
     )
     .join("");
 }
@@ -221,15 +235,16 @@ function addBrowseTheme() {
   renderBrowseChips();
 }
 
-async function handleDetails(mangaId, targetEl) {
-  if (!targetEl) return;
+async function handleDetails(mangaId, title) {
   api("/api/events", {
     method: "POST",
     body: JSON.stringify({ event_type: "details", manga_id: mangaId }),
   }).catch(() => {});
   const data = await api(`/api/manga/details?id=${encodeURIComponent(mangaId)}`);
   const item = data.item || {};
-  targetEl.innerHTML = window.renderDetailsHTML ? window.renderDetailsHTML(item) : "";
+  if (window.openDetailsModal && window.renderDetailsHTML) {
+    window.openDetailsModal(window.renderDetailsHTML(item), title || item.display_title || item.title);
+  }
 }
 
 async function searchTitles() {
@@ -240,27 +255,37 @@ async function searchTitles() {
     return;
   }
   setStatus("Searching...");
-  await loadListState();
-  const data = await api(`/api/manga/search?q=${encodeURIComponent(query)}`);
-  state.searchItems = filterByType(data.items || []);
-  renderList(searchResults, state.searchItems);
-  setStatus("");
+  setLoading(searchLoading, true);
+  try {
+    await loadListState();
+    const data = await api(`/api/manga/search?q=${encodeURIComponent(query)}`);
+    state.searchItems = filterByType(data.items || []);
+    renderList(searchResults, state.searchItems);
+    setStatus("");
+  } finally {
+    setLoading(searchLoading, false);
+  }
 }
 
 async function browseTitles() {
-  await loadListState();
-  const params = new URLSearchParams();
-  if (browseSort && browseSort.value) params.set("sort", browseSort.value);
-  if (browseMinScore && browseMinScore.value) params.set("min_score", browseMinScore.value);
-  if (browseStatus && browseStatus.value) params.set("status", browseStatus.value);
-  if (state.browseGenres.length) params.set("genres", state.browseGenres.join(","));
-  if (state.browseThemes.length) params.set("themes", state.browseThemes.join(","));
-  const types = selectedTypes();
-  if (types.length) params.set("content_types", types.join(","));
+  setLoading(browseLoading, true);
+  try {
+    await loadListState();
+    const params = new URLSearchParams();
+    if (browseSort && browseSort.value) params.set("sort", browseSort.value);
+    if (browseMinScore && browseMinScore.value) params.set("min_score", browseMinScore.value);
+    if (browseStatus && browseStatus.value) params.set("status", browseStatus.value);
+    if (state.browseGenres.length) params.set("genres", state.browseGenres.join(","));
+    if (state.browseThemes.length) params.set("themes", state.browseThemes.join(","));
+    const types = selectedTypes();
+    if (types.length) params.set("content_types", types.join(","));
 
-  const data = await api(`/api/manga/browse?${params.toString()}`);
-  state.browseItems = filterByType(data.items || []);
-  renderList(browseResults, state.browseItems);
+    const data = await api(`/api/manga/browse?${params.toString()}`);
+    state.browseItems = filterByType(data.items || []);
+    renderList(browseResults, state.browseItems);
+  } finally {
+    setLoading(browseLoading, false);
+  }
 }
 
 async function loadUiPrefs() {
@@ -385,12 +410,8 @@ function attachListHandlers(container) {
   container.addEventListener("click", (event) => {
     if (event.target.classList.contains("details-btn")) {
       const mangaId = event.target.dataset.id;
-      const targetEl = event.target.closest(".list-item").querySelector(".details");
-      if (targetEl.innerHTML) {
-        targetEl.innerHTML = "";
-        return;
-      }
-      handleDetails(mangaId, targetEl).catch(() => {});
+      const title = event.target.closest(".result-card")?.dataset?.display || mangaId;
+      handleDetails(mangaId, title).catch(() => {});
       return;
     }
     if (event.target.classList.contains("add-open")) {

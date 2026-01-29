@@ -11,6 +11,7 @@ def search_by_title(query, limit=10):
                title_name,
                english_name,
                japanese_name,
+               cover_url,
                score,
                genres,
                themes,

@@ -170,7 +170,7 @@ function renderDetailsHTML(item) {
 
   const description = item.description ? escapeHtml(item.description) : "";
   const cover = item.cover_url
-    ? `<img class="details-cover" src="${escapeHtml(item.cover_url)}" alt="Cover">`
+    ? `<img class="details-cover" src="${escapeHtml(item.cover_url)}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
     : "";
   const linkHtml = external.length
     ? `<div class="details-links">${external
@@ -215,3 +215,47 @@ function renderDetailsHTML(item) {
 }
 
 window.renderDetailsHTML = renderDetailsHTML;
+
+let detailsModal;
+let detailsModalTitle;
+let detailsModalContent;
+let detailsModalClose;
+
+function ensureDetailsModal() {
+  if (detailsModal) return;
+  detailsModal = document.getElementById("details-modal");
+  if (!detailsModal) {
+    detailsModal = document.createElement("dialog");
+    detailsModal.id = "details-modal";
+    detailsModal.className = "modal details-modal";
+    detailsModal.innerHTML = `
+      <div class="details-modal-header">
+        <h3 id="details-modal-title">Details</h3>
+        <button id="details-modal-close" class="ghost" type="button">Close</button>
+      </div>
+      <div id="details-modal-content" class="details-modal-content"></div>
+    `;
+    document.body.appendChild(detailsModal);
+  }
+  detailsModalTitle = document.getElementById("details-modal-title");
+  detailsModalContent = document.getElementById("details-modal-content");
+  detailsModalClose = document.getElementById("details-modal-close");
+  if (detailsModalClose) {
+    detailsModalClose.addEventListener("click", () => detailsModal.close());
+  }
+  detailsModal.addEventListener("click", (event) => {
+    const rect = detailsModal.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
+      detailsModal.close();
+    }
+  });
+}
+
+function openDetailsModal(html, title) {
+  ensureDetailsModal();
+  if (detailsModalTitle) detailsModalTitle.textContent = title || "Details";
+  if (detailsModalContent) detailsModalContent.innerHTML = html || "<div class='muted'>No details available.</div>";
+  detailsModal.showModal();
+}
+
+window.openDetailsModal = openDetailsModal;

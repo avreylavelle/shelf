@@ -232,15 +232,16 @@ function renderRatings() {
   toggleRatings.textContent = state.expanded ? "Show Less" : "Show All";
 }
 
-async function handleDetails(mangaId, targetEl) {
-  if (!targetEl) return;
+async function handleDetails(mangaId, title) {
   api("/api/events", {
     method: "POST",
     body: JSON.stringify({ event_type: "details", manga_id: mangaId }),
   }).catch(() => {});
   const data = await api(`/api/manga/details?id=${encodeURIComponent(mangaId)}`);
   const item = data.item || {};
-  targetEl.innerHTML = window.renderDetailsHTML ? window.renderDetailsHTML(item) : "";
+  if (window.openDetailsModal && window.renderDetailsHTML) {
+    window.openDetailsModal(window.renderDetailsHTML(item), title || item.display_title || item.title);
+  }
 }
 
 async function loadRatings() {
@@ -291,12 +292,8 @@ toggleRatings.addEventListener("click", () => {
 ratingsEl.addEventListener("click", (event) => {
   if (event.target.classList.contains("details-btn")) {
     const mangaId = event.target.dataset.id;
-    const targetEl = event.target.closest(".list-item").querySelector(".details");
-    if (targetEl.innerHTML) {
-      targetEl.innerHTML = "";
-      return;
-    }
-    handleDetails(mangaId, targetEl).catch(() => {});
+    const title = event.target.closest(".list-item")?.querySelector("strong")?.textContent || mangaId;
+    handleDetails(mangaId, title).catch(() => {});
   }
   if (event.target.classList.contains("delete-btn")) {
     const mangaId = event.target.dataset.mangaId;
@@ -316,12 +313,8 @@ if (searchResults) {
   searchResults.addEventListener("click", (event) => {
     if (event.target.classList.contains("details-btn")) {
       const mangaId = event.target.dataset.id;
-      const targetEl = event.target.closest(".list-item").querySelector(".details");
-      if (targetEl.innerHTML) {
-        targetEl.innerHTML = "";
-        return;
-      }
-      handleDetails(mangaId, targetEl).catch(() => {});
+      const title = event.target.closest(".list-item")?.querySelector("strong")?.textContent || mangaId;
+      handleDetails(mangaId, title).catch(() => {});
       return;
     }
     if (!event.target.classList.contains("rate-open")) return;
