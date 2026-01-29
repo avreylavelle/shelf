@@ -32,6 +32,9 @@ async function loadUiPrefs() {
       } else {
         setDefaultTypes();
       }
+      if (!typeOptions.some((opt) => opt.checked)) {
+        setDefaultTypes();
+      }
     }
   } catch (err) {
     if (typeOptions.length) setDefaultTypes();
@@ -91,15 +94,15 @@ async function loadListState() {
     api("/api/reading-list").catch(() => ({ items: [] })),
   ]);
   listState.ratings = new Set(Object.keys(ratingsData.items || {}));
-  listState.dnr = new Set((dnrData.items || []).map((item) => item.manga_id));
-  listState.reading = new Set((readingData.items || []).map((item) => item.manga_id));
+  listState.dnr = new Set((dnrData.items || []).map((item) => item.mdex_id || item.manga_id));
+  listState.reading = new Set((readingData.items || []).map((item) => item.mdex_id || item.manga_id));
 }
 
-function getLocations(title) {
+function getLocations(mangaId) {
   const locations = [];
-  if (listState.ratings.has(title)) locations.push("Ratings");
-  if (listState.reading.has(title)) locations.push("Reading List");
-  if (listState.dnr.has(title)) locations.push("DNR");
+  if (listState.ratings.has(mangaId)) locations.push("Ratings");
+  if (listState.reading.has(mangaId)) locations.push("Reading List");
+  if (listState.dnr.has(mangaId)) locations.push("DNR");
   return locations;
 }
 
@@ -116,12 +119,12 @@ function renderSearchResults(items) {
           <div>
             <strong>${item.display_title || item.title}</strong>
             <div class="muted">Score: ${item.score ?? "n/a"}</div>
-            ${getLocations(item.title).length ? `<div class="badge">Currently in: ${getLocations(item.title).join(", ")}</div>` : ""}
-            <div class="details" data-details="${item.title}"></div>
+            ${getLocations(item.id).length ? `<div class="badge">Currently in: ${getLocations(item.id).join(", ")}</div>` : ""}
+            <div class="details" data-details="${item.id}"></div>
           </div>
           <div class="row">
-            <button class="details-btn" data-title="${item.title}" type="button">Details</button>
-            <button class="dnr-add" data-title="${item.title}" type="button">Add to DNR</button>
+            <button class="details-btn" data-id="${item.id}" type="button">Details</button>
+            <button class="dnr-add" data-id="${item.id}" type="button">Add to DNR</button>
           </div>
         </div>
       `
@@ -139,7 +142,7 @@ async function searchTitles() {
   setStatus("Searching...");
   await loadListState();
   const data = await api(`/api/manga/search?q=${encodeURIComponent(query)}`);
-  const items = (data.items || []).filter((item) => !listState.dnr.has(item.title));
+  const items = (data.items || []).filter((item) => !listState.dnr.has(item.id));
   state.searchItems = items;
   renderSearchResults(filterByType(state.searchItems));
   setStatus("");
@@ -165,96 +168,35 @@ function renderDnr(items) {
   const filtered = filterDnrItems(items);
   dnrList.innerHTML = filtered
     .map(
-      (item) => `
+      (item) => {
+        const mangaId = item.mdex_id || item.manga_id;
+        return `
         <div class="list-item">
           <div>
             <strong>${item.display_title || item.manga_id}</strong>
             <div class="muted">Added: ${item.created_at}</div>
-            <div class="details" data-details="${item.manga_id}"></div>
+            <div class="details" data-details="${mangaId}"></div>
           </div>
           <div class="row">
-            <button class="details-btn" data-title="${item.manga_id}" type="button">Details</button>
-            <button class="dnr-remove" data-title="${item.manga_id}" type="button">Remove</button>
+            <button class="details-btn" data-id="${mangaId}" type="button">Details</button>
+            <button class="dnr-remove" data-id="${mangaId}" type="button">Remove</button>
           </div>
         </div>
-      `
+      `;
+      }
     )
     .join("");
 }
 
-async function handleDetails(title, targetEl) {
+async function handleDetails(mangaId, targetEl) {
   if (!targetEl) return;
   api("/api/events", {
     method: "POST",
-    body: JSON.stringify({ event_type: "details", manga_id: title }),
+    body: JSON.stringify({ event_type: "details", manga_id: mangaId }),
   }).catch(() => {});
-  const data = await api(`/api/manga/details?title=${encodeURIComponent(title)}`);
+  const data = await api(`/api/manga/details?id=${encodeURIComponent(mangaId)}`);
   const item = data.item || {};
-  const toList = (value) => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-        try {
-          const cleaned = trimmed.replace(/'/g, '"');
-          const parsed = JSON.parse(cleaned);
-          if (Array.isArray(parsed)) return parsed;
-        } catch (err) {}
-      }
-      return trimmed.split(",").map((v) => v.trim()).filter(Boolean);
-    }
-    return [];
-  };
-  const renderChips = (items) =>
-    items.length ? `<div class="details-chips">${items.map((val) => `<span class="badge">${val}</span>`).join("")}</div>` : "<span class='muted'>n/a</span>";
-
-  const rows = [
-    ["Type", item.item_type],
-    ["Status", item.status],
-    ["Publishing", item.publishing_date],
-    ["Volumes", item.volumes],
-    ["Chapters", item.chapters],
-    ["Score", item.score],
-  ]
-    .filter((entry) => entry[1] !== undefined && entry[1] !== null && entry[1] !== "")
-    .map(
-      ([label, value]) => `
-        <div class="details-row">
-          <div class="details-label">${label}</div>
-          <div class="details-value">${value}</div>
-        </div>
-      `
-    )
-    .join("");
-
-  targetEl.innerHTML = `
-    <div class="details-box">
-      <div class="details-grid">
-        ${rows || `<div class="muted">No extra details available.</div>`}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Demographic</div>
-        ${renderChips(toList(item.demographic))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Authors</div>
-        ${renderChips(toList(item.authors))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Serialization</div>
-        ${renderChips(toList(item.serialization))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Genres</div>
-        ${renderChips(toList(item.genres))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Themes</div>
-        ${renderChips(toList(item.themes))}
-      </div>
-    </div>
-  `;
+  targetEl.innerHTML = window.renderDetailsHTML ? window.renderDetailsHTML(item) : "";
 }
 
 async function loadDnr() {
@@ -331,20 +273,20 @@ if (dnrSort) {
 if (searchResults) {
   searchResults.addEventListener("click", (event) => {
     if (event.target.classList.contains("details-btn")) {
-      const title = event.target.dataset.title;
+      const mangaId = event.target.dataset.id;
       const targetEl = event.target.closest(".list-item").querySelector(".details");
       if (targetEl.innerHTML) {
         targetEl.innerHTML = "";
         return;
       }
-      handleDetails(title, targetEl).catch(() => {});
+      handleDetails(mangaId, targetEl).catch(() => {});
       return;
     }
     if (!event.target.classList.contains("dnr-add")) return;
-    const title = event.target.dataset.title;
+    const mangaId = event.target.dataset.id;
     const card = event.target.closest(".list-item");
-    const display = card?.querySelector("strong")?.textContent || title;
-    const locations = getLocations(title).filter((loc) => loc !== "DNR");
+    const display = card?.querySelector("strong")?.textContent || mangaId;
+    const locations = getLocations(mangaId).filter((loc) => loc !== "DNR");
     if (locations.length) {
       if (!confirm(`Move from ${locations.join(", ")} to DNR?`)) {
         return;
@@ -352,7 +294,7 @@ if (searchResults) {
     }
     api("/api/dnr", {
       method: "POST",
-      body: JSON.stringify({ manga_id: title }),
+      body: JSON.stringify({ manga_id: mangaId }),
     })
       .then(() => {
         showToast(`Added ${display} to DNR`);
@@ -367,18 +309,18 @@ if (searchResults) {
 if (dnrList) {
   dnrList.addEventListener("click", (event) => {
     if (event.target.classList.contains("details-btn")) {
-      const title = event.target.dataset.title;
+      const mangaId = event.target.dataset.id;
       const targetEl = event.target.closest(".list-item").querySelector(".details");
       if (targetEl.innerHTML) {
         targetEl.innerHTML = "";
         return;
       }
-      handleDetails(title, targetEl).catch(() => {});
+      handleDetails(mangaId, targetEl).catch(() => {});
       return;
     }
     if (!event.target.classList.contains("dnr-remove")) return;
-    const title = event.target.dataset.title;
-    api(`/api/dnr/${encodeURIComponent(title)}`, { method: "DELETE" })
+    const mangaId = event.target.dataset.id;
+    api(`/api/dnr/${encodeURIComponent(mangaId)}`, { method: "DELETE" })
       .then(loadDnr)
       .catch((e) => setStatus(e.message, true));
   });

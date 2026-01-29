@@ -1,4 +1,5 @@
 from functools import wraps
+import re
 
 import csv
 import io
@@ -80,6 +81,55 @@ def _parse_bool(value, default=False):
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+_VARIANT_RE = re.compile(
+    r"(official|digital|full)?\s*colou?r(ed)?|omnibus|deluxe|kanzenban|special\\s+edition|complete\\s+edition|collector",
+    re.I,
+)
+
+
+def _variant_score(title):
+    if not title:
+        return 1
+    text = str(title).lower()
+    score = 0
+    if _VARIANT_RE.search(text):
+        score += 2
+    if "(" in text and ")" in text:
+        score += 1
+    return score
+
+
+def _dedupe_by_mal_id(items, query=None, limit=None):
+    if not items:
+        return items
+    if query and _VARIANT_RE.search(str(query).lower()):
+        return items[:limit] if limit else items
+
+    groups = {}
+    ordered = []
+    for idx, item in enumerate(items):
+        mal_id = item.get("mal_id")
+        if not mal_id:
+            ordered.append((idx, item))
+            continue
+        groups.setdefault(mal_id, []).append((idx, item))
+
+    for group in groups.values():
+        best = min(
+            group,
+            key=lambda pair: (
+                _variant_score(pair[1].get("display_title") or pair[1].get("title") or ""),
+                len(pair[1].get("display_title") or pair[1].get("title") or ""),
+            ),
+        )
+        earliest_idx = min(idx for idx, _ in group)
+        ordered.append((earliest_idx, best[1]))
+
+    ordered.sort(key=lambda pair: pair[0])
+    deduped = [item for _, item in ordered]
+    return deduped[:limit] if limit else deduped
 
 
 @api_bp.get("/session")
@@ -179,6 +229,7 @@ def list_dnr():
         {
             "user_id": row["user_id"],
             "manga_id": row["manga_id"],
+            "mdex_id": _get_value(row, "mdex_id") or _get_value(row, "mangadex_id"),
             "status": row["status"] if "status" in row.keys() else None,
             "display_title": _display_title(row, language),
             "english_name": row["english_name"],
@@ -233,6 +284,7 @@ def list_reading_list():
         {
             "user_id": row["user_id"],
             "manga_id": row["manga_id"],
+            "mdex_id": _get_value(row, "mdex_id") or _get_value(row, "mangadex_id"),
             "status": row["status"] if "status" in row.keys() else None,
             "display_title": _display_title(row, language),
             "english_name": row["english_name"],
@@ -304,6 +356,7 @@ def list_ratings():
         {
             "user_id": row["user_id"],
             "manga_id": row["manga_id"],
+            "mdex_id": _get_value(row, "mdex_id") or _get_value(row, "mangadex_id"),
             "status": row["status"] if "status" in row.keys() else None,
             "display_title": _display_title(row, language),
             "english_name": row["english_name"],
@@ -371,12 +424,13 @@ def search_manga():
     if not query:
         return jsonify({"items": []})
 
-    rows = manga_repo.search_by_title(query, limit=10)
+    rows = manga_repo.search_by_title(query, limit=20)
     profile = profile_service.get_profile(session["user_id"])
     language = (profile or {}).get("language") or "English"
     payload = [
         {
             "id": row["id"],
+            "mal_id": row["mal_id"],
             "title": row["title_name"],
             "display_title": _display_title(row, language),
             "english_name": row["english_name"],
@@ -388,6 +442,7 @@ def search_manga():
         }
         for row in rows
     ]
+    payload = _dedupe_by_mal_id(payload, query=query, limit=10)
     return jsonify({"items": payload})
 
 
@@ -451,9 +506,11 @@ def browse_manga():
     language = (profile or {}).get("language") or "English"
 
     payload = []
-    for _, row in df.head(limit).iterrows():
+    sample_limit = min(len(df), limit * 3)
+    for _, row in df.head(sample_limit).iterrows():
         item = {
             "id": row.get("id"),
+            "mal_id": row.get("mal_id"),
             "title": row.get("title_name"),
             "display_title": _display_title(row, language),
             "english_name": row.get("english_name"),
@@ -468,19 +525,42 @@ def browse_manga():
         }
         payload.append(_sanitize_item(item))
 
+    payload = _dedupe_by_mal_id(payload, limit=limit)
     return jsonify({"items": payload})
 
 
 @api_bp.get("/manga/details")
 @login_required
 def manga_details():
-    title = (request.args.get("title") or "").strip()
-    if not title:
-        return jsonify({"error": "title required"}), 400
-    row = manga_repo.get_by_title(title)
+    manga_id = (request.args.get("id") or request.args.get("manga_id") or request.args.get("title") or "").strip()
+    if not manga_id:
+        return jsonify({"error": "id required"}), 400
+    row = manga_repo.get_by_id(manga_id)
+    source = "mdex"
+    if not row:
+        row = manga_repo.get_by_title(manga_id)
+    if not row and manga_id.startswith("mal:"):
+        mal_id = manga_id.replace("mal:", "").strip()
+        row = manga_repo.get_stats_by_mal_id(mal_id)
+        source = "mal"
+    if not row:
+        row = manga_repo.get_stats_by_title(manga_id)
+        if row:
+            source = "mal"
     if not row:
         return jsonify({"error": "not found"}), 404
-    return jsonify({"item": dict(row)})
+
+    item = dict(row)
+    if source == "mal":
+        mal_id = str(item.get("mal_id") or "").strip()
+        item["link"] = None
+        item["links"] = {"mal": mal_id} if mal_id else None
+        item["cover_url"] = None
+        item["original_language"] = None
+        item["content_rating"] = None
+        item["updated_at"] = None
+        item["source"] = "mal"
+    return jsonify({"item": item})
 
 
 @api_bp.post("/events")
@@ -536,7 +616,8 @@ def admin_export_ratings():
     writer = csv.writer(output)
     writer.writerow(["manga_id", "rating"])  # header line
     for row in rows:
-        writer.writerow([row["manga_id"], row["rating"]])
+        manga_id = _get_value(row, "mdex_id") or _get_value(row, "mangadex_id") or row["manga_id"]
+        writer.writerow([manga_id, row["rating"]])
     csv_data = output.getvalue()
     return Response(
         csv_data,
@@ -569,49 +650,6 @@ def admin_import_ratings():
     return jsonify({"ok": True, "count": count})
 
 
-@api_bp.get("/recommendations")
-@login_required
-def recommendations():
-    user_id = session["user_id"]
-    profile = profile_service.get_profile(user_id)
-    language = (profile or {}).get("language") or "English"
-
-    mode = (request.args.get("mode") or "").strip() or None
-    reroll = _parse_bool(request.args.get("reroll"))
-    diversify = _parse_bool(request.args.get("diversify"), True)
-    novelty = _parse_bool(request.args.get("novelty"), False)
-    personalize = _parse_bool(request.args.get("personalize"), True)
-    min_year = request.args.get("min_year")
-    try:
-        min_year = int(min_year) if min_year is not None else None
-    except (TypeError, ValueError):
-        min_year = None
-    content_types = _parse_list(request.args.get("content_types"))
-    blacklist_genres = _parse_list(request.args.get("blacklist_genres"))
-    blacklist_themes = _parse_list(request.args.get("blacklist_themes"))
-    results, used_current = rec_service.recommend_for_user(
-        current_app.config["DATABASE"],
-        user_id,
-        [],
-        [],
-        limit=20,
-        mode=mode,
-        reroll=reroll,
-        diversify=diversify,
-        novelty=novelty,
-        personalize=personalize,
-        earliest_year=min_year,
-        content_types=content_types,
-        blacklist_genres=blacklist_genres,
-        blacklist_themes=blacklist_themes,
-    )
-    items = []
-    for item in results or []:
-        item["display_title"] = _display_title(item, language)
-        items.append(_sanitize_item(item))
-    return jsonify({"items": items, "used_current": used_current, "mode": mode or "v3"})
-
-
 @api_bp.post("/recommendations")
 @login_required
 def recommendations_with_prefs():
@@ -641,7 +679,7 @@ def recommendations_with_prefs():
     profile = profile_service.get_profile(user_id)
     language = (profile or {}).get("language") or "English"
 
-    results, used_current = rec_service.recommend_for_user(
+    results, _ = rec_service.recommend_for_user(
         current_app.config["DATABASE"],
         user_id,
         current_genres,
@@ -661,4 +699,4 @@ def recommendations_with_prefs():
     for item in results or []:
         item["display_title"] = _display_title(item, language)
         items.append(_sanitize_item(item))
-    return jsonify({"items": items, "used_current": used_current, "mode": mode or "v3"})
+    return jsonify({"items": items})

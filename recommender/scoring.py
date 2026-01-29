@@ -25,14 +25,17 @@ def compute_rating_affinities(manga_df, read_manga):
     rated_count = 0
 
     # Iterate through all read entries
-    for title, rating in read_manga.items():
+    for manga_id, rating in read_manga.items():
 
         if rating is None:
             continue
         rated_count += 1
         local_weight = (rating - 5) / 5 # 10 gives a 1.0 boost, 1 gives a -0.8, 0 is ignored, 5 does nothing
 
-        row = manga_df[manga_df["title_name"] == title] # row per title
+        if "id" in manga_df.columns:
+            row = manga_df[manga_df["id"] == manga_id]
+        else:
+            row = manga_df[manga_df["title_name"] == manga_id]
         if row.empty: # skip entries with no rating
             continue
 
@@ -113,7 +116,7 @@ def compute_rating_affinities_v2(manga_df, read_manga):
     genre_boost = {}
     theme_boost = {}
 
-    for title, rating in read_manga.items():
+    for manga_id, rating in read_manga.items():
         if rating is None or rating == 0:
             continue
         try:
@@ -126,7 +129,10 @@ def compute_rating_affinities_v2(manga_df, read_manga):
         if local_weight < 0:
             local_weight = max(local_weight, -0.4)
 
-        row = manga_df[manga_df["title_name"] == title]
+        if "id" in manga_df.columns:
+            row = manga_df[manga_df["id"] == manga_id]
+        else:
+            row = manga_df[manga_df["title_name"] == manga_id]
         if row.empty:
             continue
 

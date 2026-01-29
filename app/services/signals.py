@@ -41,16 +41,33 @@ def _fetch_manga_tags(db_path, manga_ids):
     conn.row_factory = sqlite3.Row
     try:
         results = {}
-        chunk_size = 900
+        chunk_size = 200
         for i in range(0, len(ids), chunk_size):
             chunk = ids[i : i + chunk_size]
             placeholders = ",".join(["?"] * len(chunk))
-            query = f"SELECT title_name, genres, themes FROM manga_cleaned WHERE title_name IN ({placeholders})"
-            for row in conn.execute(query, chunk):
-                results[row["title_name"]] = {
+            query = f"""
+                SELECT mangadex_id, title_name, english_name, japanese_name, genres, themes
+                FROM manga_merged
+                WHERE (mangadex_id IN ({placeholders})
+                   OR title_name IN ({placeholders})
+                   OR english_name IN ({placeholders})
+                   OR japanese_name IN ({placeholders}))
+                  AND mangadex_id NOT LIKE 'mal:%'
+            """
+            params = chunk + chunk + chunk + chunk
+            for row in conn.execute(query, params):
+                payload = {
                     "genres": parse_list(row["genres"]),
                     "themes": parse_list(row["themes"]),
                 }
+                if row["mangadex_id"]:
+                    results[row["mangadex_id"]] = payload
+                if row["title_name"]:
+                    results[row["title_name"]] = payload
+                if row["english_name"]:
+                    results[row["english_name"]] = payload
+                if row["japanese_name"]:
+                    results[row["japanese_name"]] = payload
         return results
     finally:
         conn.close()
@@ -76,15 +93,22 @@ def recompute_affinities(user_id, db_path=None):
     db = get_db()
 
     ratings = db.execute(
-        "SELECT manga_id, rating, recommended_by_us, finished_reading FROM user_ratings WHERE lower(user_id) = lower(?)",
+        """
+        SELECT COALESCE(mdex_id, manga_id) AS manga_id,
+               rating,
+               recommended_by_us,
+               finished_reading
+        FROM user_ratings
+        WHERE lower(user_id) = lower(?)
+        """,
         (user_id,),
     ).fetchall()
     dnr_rows = db.execute(
-        "SELECT manga_id FROM user_dnr WHERE lower(user_id) = lower(?)",
+        "SELECT COALESCE(mdex_id, manga_id) AS manga_id FROM user_dnr WHERE lower(user_id) = lower(?)",
         (user_id,),
     ).fetchall()
     reading_rows = db.execute(
-        "SELECT manga_id, status FROM user_reading_list WHERE lower(user_id) = lower(?)",
+        "SELECT COALESCE(mdex_id, manga_id) AS manga_id, status FROM user_reading_list WHERE lower(user_id) = lower(?)",
         (user_id,),
     ).fetchall()
     clicked_rows = db.execute(

@@ -91,31 +91,31 @@ async function loadListState() {
     api("/api/reading-list").catch(() => ({ items: [] })),
   ]);
   listState.ratings = new Set(Object.keys(ratingsData.items || {}));
-  listState.dnr = new Set((dnrData.items || []).map((item) => item.manga_id));
-  listState.reading = new Set((readingData.items || []).map((item) => item.manga_id));
+  listState.dnr = new Set((dnrData.items || []).map((item) => item.mdex_id || item.manga_id));
+  listState.reading = new Set((readingData.items || []).map((item) => item.mdex_id || item.manga_id));
 }
 
-function updateListState(title, destination) {
-  listState.ratings.delete(title);
-  listState.reading.delete(title);
-  listState.dnr.delete(title);
-  if (destination === "Ratings") listState.ratings.add(title);
-  if (destination === "Reading List") listState.reading.add(title);
-  if (destination === "DNR") listState.dnr.add(title);
+function updateListState(mangaId, destination) {
+  listState.ratings.delete(mangaId);
+  listState.reading.delete(mangaId);
+  listState.dnr.delete(mangaId);
+  if (destination === "Ratings") listState.ratings.add(mangaId);
+  if (destination === "Reading List") listState.reading.add(mangaId);
+  if (destination === "DNR") listState.dnr.add(mangaId);
 }
 
-function getLocations(title) {
+function getLocations(mangaId) {
   const locations = [];
-  if (listState.ratings.has(title)) locations.push("Ratings");
-  if (listState.reading.has(title)) locations.push("Reading List");
-  if (listState.dnr.has(title)) locations.push("DNR");
+  if (listState.ratings.has(mangaId)) locations.push("Ratings");
+  if (listState.reading.has(mangaId)) locations.push("Reading List");
+  if (listState.dnr.has(mangaId)) locations.push("DNR");
   return locations;
 }
 
-function openAddModal(title, displayTitle) {
+function openAddModal(mangaId, displayTitle) {
   if (!addModal) return;
-  addModal.dataset.title = title;
-  addModal.dataset.display = displayTitle || title;
+  addModal.dataset.id = mangaId;
+  addModal.dataset.display = displayTitle || mangaId;
   if (addModalTitle) addModalTitle.textContent = displayTitle || "Add";
   addModal.showModal();
 }
@@ -125,11 +125,11 @@ function closeAddModal() {
   addModal.close();
 }
 
-function openRateModal(title, displayTitle) {
+function openRateModal(mangaId, displayTitle) {
   if (!rateModal) return;
-  rateModal.dataset.title = title;
-  rateModal.dataset.display = displayTitle || title;
-  rateModalTitle.textContent = displayTitle || title;
+  rateModal.dataset.id = mangaId;
+  rateModal.dataset.display = displayTitle || mangaId;
+  rateModalTitle.textContent = displayTitle || mangaId;
   rateModalInput.value = "";
   rateModalFlag.checked = false;
   if (rateModalFinished) rateModalFinished.checked = false;
@@ -141,17 +141,17 @@ function closeRateModal() {
   rateModal.close();
 }
 
-function removeItemEverywhere(title) {
+function removeItemEverywhere(mangaId) {
   if (searchResults) {
-    const el = searchResults.querySelector(`.list-item[data-title="${cssEscape(title)}"]`);
+    const el = searchResults.querySelector(`.list-item[data-id="${cssEscape(mangaId)}"]`);
     if (el) el.remove();
   }
   if (browseResults) {
-    const el = browseResults.querySelector(`.list-item[data-title="${cssEscape(title)}"]`);
+    const el = browseResults.querySelector(`.list-item[data-id="${cssEscape(mangaId)}"]`);
     if (el) el.remove();
   }
-  state.searchItems = state.searchItems.filter((item) => item.title !== title);
-  state.browseItems = state.browseItems.filter((item) => item.title !== title);
+  state.searchItems = state.searchItems.filter((item) => item.id !== mangaId);
+  state.browseItems = state.browseItems.filter((item) => item.id !== mangaId);
 }
 
 function renderList(container, items) {
@@ -163,16 +163,16 @@ function renderList(container, items) {
   container.innerHTML = items
     .map(
       (item) => `
-        <div class="list-item" data-title="${item.title}" data-display="${item.display_title || item.title}">
+        <div class="list-item" data-id="${item.id}" data-display="${item.display_title || item.title}">
           <div>
             <strong>${item.display_title || item.title}</strong>
             <div class="muted">Score: ${item.score ?? "n/a"}</div>
-            ${getLocations(item.title).length ? `<div class="badge">Currently in: ${getLocations(item.title).join(", ")}</div>` : ""}
-            <div class="details" data-details="${item.title}"></div>
+            ${getLocations(item.id).length ? `<div class="badge">Currently in: ${getLocations(item.id).join(", ")}</div>` : ""}
+            <div class="details" data-details="${item.id}"></div>
           </div>
           <div class="row">
-            <button class="details-btn" data-title="${item.title}" type="button">Details</button>
-            <button class="add-open" data-title="${item.title}" data-display="${item.display_title || item.title}" type="button">Add</button>
+            <button class="details-btn" data-id="${item.id}" type="button">Details</button>
+            <button class="add-open" data-id="${item.id}" data-display="${item.display_title || item.title}" type="button">Add</button>
           </div>
         </div>
       `
@@ -221,79 +221,15 @@ function addBrowseTheme() {
   renderBrowseChips();
 }
 
-async function handleDetails(title, targetEl) {
+async function handleDetails(mangaId, targetEl) {
   if (!targetEl) return;
   api("/api/events", {
     method: "POST",
-    body: JSON.stringify({ event_type: "details", manga_id: title }),
+    body: JSON.stringify({ event_type: "details", manga_id: mangaId }),
   }).catch(() => {});
-  const data = await api(`/api/manga/details?title=${encodeURIComponent(title)}`);
+  const data = await api(`/api/manga/details?id=${encodeURIComponent(mangaId)}`);
   const item = data.item || {};
-  const toList = (value) => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-        try {
-          const cleaned = trimmed.replace(/'/g, '"');
-          const parsed = JSON.parse(cleaned);
-          if (Array.isArray(parsed)) return parsed;
-        } catch (err) {}
-      }
-      return trimmed.split(",").map((v) => v.trim()).filter(Boolean);
-    }
-    return [];
-  };
-  const renderChips = (items) =>
-    items.length ? `<div class="details-chips">${items.map((val) => `<span class="badge">${val}</span>`).join("")}</div>` : "<span class='muted'>n/a</span>";
-
-  const rows = [
-    ["Type", item.item_type],
-    ["Status", item.status],
-    ["Publishing", item.publishing_date],
-    ["Volumes", item.volumes],
-    ["Chapters", item.chapters],
-    ["Score", item.score],
-  ]
-    .filter((entry) => entry[1] !== undefined && entry[1] !== null && entry[1] !== "")
-    .map(
-      ([label, value]) => `
-        <div class="details-row">
-          <div class="details-label">${label}</div>
-          <div class="details-value">${value}</div>
-        </div>
-      `
-    )
-    .join("");
-
-  targetEl.innerHTML = `
-    <div class="details-box">
-      <div class="details-grid">
-        ${rows || `<div class="muted">No extra details available.</div>`}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Demographic</div>
-        ${renderChips(toList(item.demographic))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Authors</div>
-        ${renderChips(toList(item.authors))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Serialization</div>
-        ${renderChips(toList(item.serialization))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Genres</div>
-        ${renderChips(toList(item.genres))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Themes</div>
-        ${renderChips(toList(item.themes))}
-      </div>
-    </div>
-  `;
+  targetEl.innerHTML = window.renderDetailsHTML ? window.renderDetailsHTML(item) : "";
 }
 
 async function searchTitles() {
@@ -340,6 +276,9 @@ async function loadUiPrefs() {
           opt.checked = desired.has(opt.value);
         });
       } else {
+        setDefaultTypes();
+      }
+      if (!typeOptions.some((opt) => opt.checked)) {
         setDefaultTypes();
       }
     }
@@ -445,19 +384,19 @@ function attachListHandlers(container) {
   if (!container) return;
   container.addEventListener("click", (event) => {
     if (event.target.classList.contains("details-btn")) {
-      const title = event.target.dataset.title;
+      const mangaId = event.target.dataset.id;
       const targetEl = event.target.closest(".list-item").querySelector(".details");
       if (targetEl.innerHTML) {
         targetEl.innerHTML = "";
         return;
       }
-      handleDetails(title, targetEl).catch(() => {});
+      handleDetails(mangaId, targetEl).catch(() => {});
       return;
     }
     if (event.target.classList.contains("add-open")) {
-      const title = event.target.dataset.title;
+      const mangaId = event.target.dataset.id;
       const displayTitle = event.target.dataset.display;
-      openAddModal(title, displayTitle);
+      openAddModal(mangaId, displayTitle);
     }
   });
 }
@@ -467,17 +406,17 @@ attachListHandlers(browseResults);
 
 if (addRateBtn) {
   addRateBtn.addEventListener("click", () => {
-    const title = addModal.dataset.title;
-    const display = addModal.dataset.display || title;
+    const mangaId = addModal.dataset.id;
+    const display = addModal.dataset.display || mangaId;
     closeAddModal();
-    openRateModal(title, display);
+    openRateModal(mangaId, display);
   });
 }
 if (addReadingBtn) {
   addReadingBtn.addEventListener("click", () => {
-    const title = addModal.dataset.title;
-    const display = addModal.dataset.display || title;
-    const locations = getLocations(title).filter((loc) => loc !== "Reading List");
+    const mangaId = addModal.dataset.id;
+    const display = addModal.dataset.display || mangaId;
+    const locations = getLocations(mangaId).filter((loc) => loc !== "Reading List");
     if (locations.length) {
       if (!confirm(`Move from ${locations.join(", ")} to Reading List?`)) {
         return;
@@ -485,12 +424,12 @@ if (addReadingBtn) {
     }
     api("/api/reading-list", {
       method: "POST",
-      body: JSON.stringify({ manga_id: title }),
+      body: JSON.stringify({ manga_id: mangaId }),
     })
       .then(() => {
-        updateListState(title, "Reading List");
+        updateListState(mangaId, "Reading List");
         showToast(`Added ${display} to Reading List`);
-        removeItemEverywhere(title);
+        removeItemEverywhere(mangaId);
       })
       .catch((err) => {
         showToast(err.message || "Request failed");
@@ -500,9 +439,9 @@ if (addReadingBtn) {
 }
 if (addDnrBtn) {
   addDnrBtn.addEventListener("click", () => {
-    const title = addModal.dataset.title;
-    const display = addModal.dataset.display || title;
-    const locations = getLocations(title).filter((loc) => loc !== "DNR");
+    const mangaId = addModal.dataset.id;
+    const display = addModal.dataset.display || mangaId;
+    const locations = getLocations(mangaId).filter((loc) => loc !== "DNR");
     if (locations.length) {
       if (!confirm(`Move from ${locations.join(", ")} to DNR?`)) {
         return;
@@ -510,12 +449,12 @@ if (addDnrBtn) {
     }
     api("/api/dnr", {
       method: "POST",
-      body: JSON.stringify({ manga_id: title }),
+      body: JSON.stringify({ manga_id: mangaId }),
     })
       .then(() => {
-        updateListState(title, "DNR");
+        updateListState(mangaId, "DNR");
         showToast(`Added ${display} to DNR`);
-        removeItemEverywhere(title);
+        removeItemEverywhere(mangaId);
       })
       .catch((err) => {
         showToast(err.message || "Request failed");
@@ -537,13 +476,13 @@ if (addModal) {
 
 if (rateModalAdd) {
   rateModalAdd.addEventListener("click", () => {
-    const title = rateModal.dataset.title;
-    const display = rateModal.dataset.display || title;
+    const mangaId = rateModal.dataset.id || rateModal.dataset.title;
+    const display = rateModal.dataset.display || mangaId;
     const value = rateModalInput.value;
     const rating = value === "" ? null : Number(value);
     const recommendedByUs = rateModalFlag.checked;
     const finishedReading = rateModalFinished ? rateModalFinished.checked : false;
-    const locations = getLocations(title).filter((loc) => loc !== "Ratings");
+    const locations = getLocations(mangaId).filter((loc) => loc !== "Ratings");
     if (locations.length) {
       if (!confirm(`Move from ${locations.join(", ")} to Ratings?`)) {
         return;
@@ -551,12 +490,12 @@ if (rateModalAdd) {
     }
     api("/api/ratings", {
       method: "POST",
-      body: JSON.stringify({ manga_id: title, rating, recommended_by_us: recommendedByUs, finished_reading: finishedReading }),
+      body: JSON.stringify({ manga_id: mangaId, rating, recommended_by_us: recommendedByUs, finished_reading: finishedReading }),
     })
       .then(() => {
-        updateListState(title, "Ratings");
+        updateListState(mangaId, "Ratings");
         showToast(`${display} added to ratings with rating ${value === "" ? "n/a" : rating}`);
-        removeItemEverywhere(title);
+        removeItemEverywhere(mangaId);
       })
       .catch((err) => {
         showToast(err.message || "Request failed");

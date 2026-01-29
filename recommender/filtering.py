@@ -23,7 +23,10 @@ def parse_lists(df):
 
 def filter_already_read(df, read_manga):
     # Exclude the already read titles
-    df = df[~df["title_name"].isin(read_manga.keys())]
+    if "id" in df.columns:
+        df = df[~df["id"].isin(read_manga.keys())]
+    else:
+        df = df[~df["title_name"].isin(read_manga.keys())]
 
     return df
 
@@ -32,6 +35,9 @@ def filter_item_type(df, content_types=None):
         return df
     allowed = {str(t).strip() for t in content_types if str(t).strip()}
     if not allowed:
+        return df
+    available = set(df["item_type"].dropna().unique()) if "item_type" in df.columns else set()
+    if available and not (allowed & available):
         return df
     return df[df["item_type"].isin(allowed)]
 

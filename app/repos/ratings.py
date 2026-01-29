@@ -17,16 +17,12 @@ def list_by_user(user_id, sort="chron"):
     cur = db.execute(
         f"""
         SELECT r.user_id, r.manga_id, r.rating, r.recommended_by_us, r.finished_reading, r.created_at,
-               m.title_name, m.english_name, m.japanese_name, m.item_type
+               m.title_name, m.english_name, m.japanese_name, m.item_type,
+               COALESCE(r.mdex_id, m.mangadex_id) AS mdex_id
         FROM user_ratings r
-        LEFT JOIN (
-            SELECT title_name,
-                   MIN(english_name) AS english_name,
-                   MIN(japanese_name) AS japanese_name,
-                   MIN(item_type) AS item_type
-            FROM manga_cleaned
-            GROUP BY title_name
-        ) m ON m.title_name = r.manga_id
+        LEFT JOIN manga_merged m
+            ON m.mangadex_id = r.mdex_id
+            OR (r.mdex_id IS NULL AND m.title_name = r.manga_id)
         WHERE lower(r.user_id) = lower(?)
         {order_sql}
         """,
@@ -38,24 +34,41 @@ def list_by_user(user_id, sort="chron"):
 def list_ratings_map(user_id):
     db = get_db()
     cur = db.execute(
-        "SELECT manga_id, rating FROM user_ratings WHERE lower(user_id) = lower(?)",
+        """
+        SELECT COALESCE(r.mdex_id, m.mangadex_id, r.manga_id) AS key, r.rating
+        FROM user_ratings r
+        LEFT JOIN manga_merged m
+            ON m.mangadex_id = r.mdex_id
+            OR (r.mdex_id IS NULL AND m.title_name = r.manga_id)
+        WHERE lower(r.user_id) = lower(?)
+        """,
         (user_id,),
     )
-    return {row[0]: row[1] for row in cur.fetchall()}
+    return {row[0]: row[1] for row in cur.fetchall() if row[0]}
 
 
 def upsert_rating(user_id, manga_id, rating, recommended_by_us, finished_reading):
     db = get_db()
+    existing = db.execute(
+        """
+        SELECT manga_id
+        FROM user_ratings
+        WHERE lower(user_id) = lower(?) AND (mdex_id = ? OR manga_id = ?)
+        """,
+        (user_id, manga_id, manga_id),
+    ).fetchone()
+    key = existing[0] if existing else manga_id
     db.execute(
         """
-        INSERT INTO user_ratings (user_id, manga_id, rating, recommended_by_us, finished_reading)
-        VALUES (lower(?), ?, ?, ?, ?)
+        INSERT INTO user_ratings (user_id, manga_id, rating, recommended_by_us, finished_reading, mdex_id)
+        VALUES (lower(?), ?, ?, ?, ?, ?)
         ON CONFLICT(user_id, manga_id) DO UPDATE SET
             rating = excluded.rating,
             recommended_by_us = excluded.recommended_by_us,
-            finished_reading = excluded.finished_reading
+            finished_reading = excluded.finished_reading,
+            mdex_id = excluded.mdex_id
         """,
-        (user_id, manga_id, rating, recommended_by_us, finished_reading),
+        (user_id, key, rating, recommended_by_us, finished_reading, manga_id),
     )
     db.commit()
 
@@ -63,16 +76,16 @@ def upsert_rating(user_id, manga_id, rating, recommended_by_us, finished_reading
 def delete_rating(user_id, manga_id):
     db = get_db()
     db.execute(
-        "DELETE FROM user_ratings WHERE lower(user_id) = lower(?) AND manga_id = ?",
-        (user_id, manga_id),
+        "DELETE FROM user_ratings WHERE lower(user_id) = lower(?) AND (mdex_id = ? OR manga_id = ?)",
+        (user_id, manga_id, manga_id),
     )
     db.commit()
 
 def get_rating_value(user_id, manga_id):
     db = get_db()
     cur = db.execute(
-        "SELECT rating FROM user_ratings WHERE lower(user_id) = lower(?) AND manga_id = ?",
-        (user_id, manga_id),
+        "SELECT rating FROM user_ratings WHERE lower(user_id) = lower(?) AND (mdex_id = ? OR manga_id = ?)",
+        (user_id, manga_id, manga_id),
     )
     row = cur.fetchone()
     return row[0] if row else None

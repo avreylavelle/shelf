@@ -54,13 +54,13 @@ const addReadingBtn = document.getElementById("add-reading");
 const addDnrBtn = document.getElementById("add-dnr");
 const addCloseBtn = document.getElementById("add-close");
 
-function openRateModal(title, displayTitle) {
+function openRateModal(mangaId, displayTitle) {
   if (!rateModal) return;
-  rateModal.dataset.title = title;
-  rateModal.dataset.display = displayTitle || title;
-  const currentRating = state.ratingsMap[title];
+  rateModal.dataset.id = mangaId;
+  rateModal.dataset.display = displayTitle || mangaId;
+  const currentRating = state.ratingsMap[mangaId];
   rateModal.dataset.currentRating = currentRating ?? "";
-  rateModalTitle.textContent = displayTitle || title;
+  rateModalTitle.textContent = displayTitle || mangaId;
   rateModalInput.value = currentRating ?? "";
   rateModalFlag.checked = false;
   if (rateModalFinished) rateModalFinished.checked = false;
@@ -72,10 +72,10 @@ function closeRateModal() {
   rateModal.close();
 }
 
-function openAddModal(title, displayTitle) {
+function openAddModal(mangaId, displayTitle) {
   if (!addModal) return;
-  addModal.dataset.title = title;
-  addModal.dataset.display = displayTitle || title;
+  addModal.dataset.id = mangaId;
+  addModal.dataset.display = displayTitle || mangaId;
   if (addModalTitle) addModalTitle.textContent = displayTitle || "Add";
   addModal.showModal();
 }
@@ -115,6 +115,11 @@ async function loadUiPrefs() {
           opt.checked = true;
         });
       }
+      if (!typeOptions.some((opt) => opt.checked)) {
+        typeOptions.forEach((opt) => {
+          opt.checked = true;
+        });
+      }
     }
   } catch (err) {
     if (typeOptions.length) {
@@ -145,16 +150,16 @@ function cssEscape(value) {
   return String(value).replace(/"/g, '\"');
 }
 
-function removeRecommendation(title) {
-  const selector = `.list-item[data-title="${cssEscape(title)}"]`;
+function removeRecommendation(mangaId) {
+  const selector = `.list-item[data-id="${cssEscape(mangaId)}"]`;
   const el = recommendationsEl.querySelector(selector);
   if (el) el.remove();
 }
 
-function displayForTitle(title) {
-  const selector = `.list-item[data-title="${cssEscape(title)}"]`;
+function displayForTitle(mangaId) {
+  const selector = `.list-item[data-id="${cssEscape(mangaId)}"]`;
   const el = recommendationsEl.querySelector(selector);
-  return (el && el.dataset.display) || title;
+  return (el && el.dataset.display) || mangaId;
 }
 
 function renderRecommendations(items) {
@@ -165,23 +170,24 @@ function renderRecommendations(items) {
 
   recommendationsEl.innerHTML = items
     .map((item) => {
-      const currentRating = state.ratingsMap[item.title];
+      const mangaId = item.id || item.title;
+      const currentRating = state.ratingsMap[mangaId];
       const ratingText = currentRating == null ? "" : `Your rating: ${currentRating}`;
       const displayTitle = item.display_title || item.title;
       const reasons = (item.reasons || [])
         .map((reason) => `<span class="badge">${reason}</span>`)
         .join("");
       return `
-        <div class="list-item" data-title="${item.title}" data-display="${displayTitle}">
+        <div class="list-item" data-id="${mangaId}" data-display="${displayTitle}">
           <div class="rec-main">
             <strong>${displayTitle}</strong>
             ${ratingText ? `<div class="muted">${ratingText}</div>` : ""}
             ${reasons ? `<div class="badges">${reasons}</div>` : ""}
-            <div class="details" data-details="${item.title}"></div>
+            <div class="details" data-details="${mangaId}"></div>
           </div>
           <div class="rec-actions">
-            <button class="details-btn" data-title="${item.title}" type="button">Details</button>
-            <button class="add-open" data-title="${item.title}" data-display="${displayTitle}" type="button">Add</button>
+            <button class="details-btn" data-id="${mangaId}" type="button">Details</button>
+            <button class="add-open" data-id="${mangaId}" data-display="${displayTitle}" type="button">Add</button>
           </div>
         </div>
       `;
@@ -268,78 +274,14 @@ async function fetchRecommendationsWithPrefs(reroll = false) {
   }
 }
 
-async function handleDetails(title, targetEl) {
+async function handleDetails(mangaId, targetEl) {
   api("/api/events", {
     method: "POST",
-    body: JSON.stringify({ event_type: "clicked", manga_id: title }),
+    body: JSON.stringify({ event_type: "clicked", manga_id: mangaId }),
   }).catch(() => {});
-  const data = await api(`/api/manga/details?title=${encodeURIComponent(title)}`);
+  const data = await api(`/api/manga/details?id=${encodeURIComponent(mangaId)}`);
   const item = data.item || {};
-  const toList = (value) => {
-    if (!value) return [];
-    if (Array.isArray(value)) return value;
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-        try {
-          const cleaned = trimmed.replace(/'/g, '"');
-          const parsed = JSON.parse(cleaned);
-          if (Array.isArray(parsed)) return parsed;
-        } catch (err) {}
-      }
-      return trimmed.split(",").map((v) => v.trim()).filter(Boolean);
-    }
-    return [];
-  };
-  const renderChips = (items) =>
-    items.length ? `<div class="details-chips">${items.map((val) => `<span class="badge">${val}</span>`).join("")}</div>` : "<span class='muted'>n/a</span>";
-
-  const rows = [
-    ["Type", item.item_type],
-    ["Status", item.status],
-    ["Publishing", item.publishing_date],
-    ["Volumes", item.volumes],
-    ["Chapters", item.chapters],
-    ["Score", item.score],
-  ]
-    .filter((entry) => entry[1] !== undefined && entry[1] !== null && entry[1] !== "")
-    .map(
-      ([label, value]) => `
-        <div class="details-row">
-          <div class="details-label">${label}</div>
-          <div class="details-value">${value}</div>
-        </div>
-      `
-    )
-    .join("");
-
-  targetEl.innerHTML = `
-    <div class="details-box">
-      <div class="details-grid">
-        ${rows || `<div class="muted">No extra details available.</div>`}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Demographic</div>
-        ${renderChips(toList(item.demographic))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Authors</div>
-        ${renderChips(toList(item.authors))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Serialization</div>
-        ${renderChips(toList(item.serialization))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Genres</div>
-        ${renderChips(toList(item.genres))}
-      </div>
-      <div class="details-group">
-        <div class="details-label">Themes</div>
-        ${renderChips(toList(item.themes))}
-      </div>
-    </div>
-  `;
+  targetEl.innerHTML = window.renderDetailsHTML ? window.renderDetailsHTML(item) : "";
 }
 
 addGenreBtn.addEventListener("click", (event) => {
@@ -474,8 +416,8 @@ if (blacklistThemesEl) {
 
 if (rateModalAdd) {
   rateModalAdd.addEventListener("click", () => {
-    const title = rateModal.dataset.title;
-    const display = rateModal.dataset.display || title;
+    const mangaId = rateModal.dataset.id;
+    const display = rateModal.dataset.display || mangaId;
     const value = rateModalInput.value;
     const rating = value === "" ? null : Number(value);
     const recommendedByUs = rateModalFlag.checked;
@@ -484,12 +426,12 @@ if (rateModalAdd) {
     const ratingDisplay = value === "" ? (current !== "" ? current : "n/a") : rating;
     api("/api/ratings", {
       method: "POST",
-      body: JSON.stringify({ manga_id: title, rating, recommended_by_us: recommendedByUs, finished_reading: finishedReading }),
+      body: JSON.stringify({ manga_id: mangaId, rating, recommended_by_us: recommendedByUs, finished_reading: finishedReading }),
     })
       .then(() => loadRatingsMap())
       .then(() => {
         showToast(`${display} added to ratings with rating ${ratingDisplay}`);
-        removeRecommendation(title);
+        removeRecommendation(mangaId);
         closeRateModal();
       })
       .catch((err) => {
@@ -500,14 +442,14 @@ if (rateModalAdd) {
 
 if (rateModalReading) {
   rateModalReading.addEventListener("click", () => {
-    const title = rateModal.dataset.title;
+    const mangaId = rateModal.dataset.id;
     api("/api/reading-list", {
       method: "POST",
-      body: JSON.stringify({ manga_id: title }),
+      body: JSON.stringify({ manga_id: mangaId }),
     })
       .then(() => {
-        showToast(`Added ${displayForTitle(title)} to Reading List`);
-        removeRecommendation(title);
+        showToast(`Added ${displayForTitle(mangaId)} to Reading List`);
+        removeRecommendation(mangaId);
         closeRateModal();
       })
       .catch((err) => showToast(err.message || "Request failed"));
@@ -527,22 +469,22 @@ if (rateModal) {
 
 if (addRateBtn) {
   addRateBtn.addEventListener("click", () => {
-    const title = addModal.dataset.title;
-    const display = addModal.dataset.display || title;
+    const mangaId = addModal.dataset.id;
+    const display = addModal.dataset.display || mangaId;
     closeAddModal();
-    openRateModal(title, display);
+    openRateModal(mangaId, display);
   });
 }
 if (addReadingBtn) {
   addReadingBtn.addEventListener("click", () => {
-    const title = addModal.dataset.title;
+    const mangaId = addModal.dataset.id;
     api("/api/reading-list", {
       method: "POST",
-      body: JSON.stringify({ manga_id: title }),
+      body: JSON.stringify({ manga_id: mangaId }),
     })
       .then(() => {
-        showToast(`Added ${displayForTitle(title)} to Reading List`);
-        removeRecommendation(title);
+        showToast(`Added ${displayForTitle(mangaId)} to Reading List`);
+        removeRecommendation(mangaId);
         closeAddModal();
       })
       .catch((err) => showToast(err.message || "Request failed"));
@@ -550,14 +492,14 @@ if (addReadingBtn) {
 }
 if (addDnrBtn) {
   addDnrBtn.addEventListener("click", () => {
-    const title = addModal.dataset.title;
+    const mangaId = addModal.dataset.id;
     api("/api/dnr", {
       method: "POST",
-      body: JSON.stringify({ manga_id: title }),
+      body: JSON.stringify({ manga_id: mangaId }),
     })
       .then(() => {
-        showToast(`Added ${displayForTitle(title)} to DNR`);
-        removeRecommendation(title);
+        showToast(`Added ${displayForTitle(mangaId)} to DNR`);
+        removeRecommendation(mangaId);
         closeAddModal();
       })
       .catch((err) => showToast(err.message || "Request failed"));
@@ -592,19 +534,19 @@ if (infoModal) {
 
 recommendationsEl.addEventListener("click", (event) => {
   if (event.target.classList.contains("details-btn")) {
-    const title = event.target.dataset.title;
+    const mangaId = event.target.dataset.id;
     const targetEl = event.target.closest(".list-item").querySelector(".details");
     if (targetEl.innerHTML) {
       targetEl.innerHTML = "";
       return;
     }
-    handleDetails(title, targetEl).catch(() => {});
+    handleDetails(mangaId, targetEl).catch(() => {});
   }
 
   if (event.target.classList.contains("add-open")) {
-    const title = event.target.dataset.title;
+    const mangaId = event.target.dataset.id;
     const displayTitle = event.target.dataset.display;
-    openAddModal(title, displayTitle);
+    openAddModal(mangaId, displayTitle);
   }
 });
 

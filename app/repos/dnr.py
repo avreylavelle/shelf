@@ -10,16 +10,12 @@ def list_by_user(user_id, sort="chron"):
     db = get_db()
     cur = db.execute(
         f"""
-        SELECT d.user_id, d.manga_id, d.created_at, m.english_name, m.japanese_name, m.title_name, m.item_type
+        SELECT d.user_id, d.manga_id, d.created_at, m.english_name, m.japanese_name, m.title_name, m.item_type,
+               COALESCE(d.mdex_id, m.mangadex_id) AS mdex_id
         FROM user_dnr d
-        LEFT JOIN (
-            SELECT title_name,
-                   MIN(english_name) AS english_name,
-                   MIN(japanese_name) AS japanese_name,
-                   MIN(item_type) AS item_type
-            FROM manga_cleaned
-            GROUP BY title_name
-        ) m ON m.title_name = d.manga_id
+        LEFT JOIN manga_merged m
+            ON m.mangadex_id = d.mdex_id
+            OR (d.mdex_id IS NULL AND m.title_name = d.manga_id)
         WHERE lower(d.user_id) = lower(?)
         {order_sql}
         """,
@@ -31,19 +27,29 @@ def list_by_user(user_id, sort="chron"):
 def add(user_id, manga_id):
     db = get_db()
     db.execute(
-        "INSERT OR IGNORE INTO user_dnr (user_id, manga_id) VALUES (lower(?), ?)",
-        (user_id, manga_id),
+        "DELETE FROM user_dnr WHERE lower(user_id) = lower(?) AND (mdex_id = ? OR manga_id = ?)",
+        (user_id, manga_id, manga_id),
+    )
+    db.execute(
+        "INSERT OR IGNORE INTO user_dnr (user_id, manga_id, mdex_id) VALUES (lower(?), ?, ?)",
+        (user_id, manga_id, manga_id),
     )
     db.commit()
 
 
 def remove(user_id, manga_id):
     db = get_db()
-    db.execute("DELETE FROM user_dnr WHERE lower(user_id) = lower(?) AND manga_id = ?", (user_id, manga_id))
+    db.execute(
+        "DELETE FROM user_dnr WHERE lower(user_id) = lower(?) AND (mdex_id = ? OR manga_id = ?)",
+        (user_id, manga_id, manga_id),
+    )
     db.commit()
 
 
 def list_manga_ids_by_user(user_id):
     db = get_db()
-    cur = db.execute("SELECT manga_id FROM user_dnr WHERE lower(user_id) = lower(?)", (user_id,))
-    return [row[0] for row in cur.fetchall()]
+    cur = db.execute(
+        "SELECT COALESCE(mdex_id, manga_id) AS key FROM user_dnr WHERE lower(user_id) = lower(?)",
+        (user_id,),
+    )
+    return [row[0] for row in cur.fetchall() if row[0]]

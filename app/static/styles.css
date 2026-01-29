@@ -285,6 +285,61 @@ button.danger {
   width: 100%;
 }
 
+.details-header {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.details-cover {
+  width: 110px;
+  height: 160px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.details-meta {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.details-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.details-links a {
+  color: var(--accent);
+  text-decoration: none;
+  background: var(--chip);
+  border: 1px solid var(--chip-border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+}
+
+.details-links a:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.details-description {
+  color: var(--muted);
+  line-height: 1.5;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  white-space: pre-line;
+}
+
 .details-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

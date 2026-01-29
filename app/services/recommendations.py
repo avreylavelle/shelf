@@ -26,7 +26,7 @@ def _build_rated_lookup(manga_df, read_manga, language):
         return {}, {}
     genre_best = {}
     theme_best = {}
-    for title, rating in read_manga.items():
+    for manga_id, rating in read_manga.items():
         if rating is None:
             continue
         try:
@@ -36,7 +36,7 @@ def _build_rated_lookup(manga_df, read_manga, language):
         if rating_value <= 0:
             continue
         try:
-            matches = manga_df[manga_df["title_name"] == title]
+            matches = manga_df[manga_df["id"] == manga_id]
         except Exception:
             matches = None
         if matches is None or matches.empty:
@@ -48,11 +48,11 @@ def _build_rated_lookup(manga_df, read_manga, language):
         for g in genres:
             current = genre_best.get(g)
             if current is None or rating_value > current[1]:
-                genre_best[g] = (display_title or title, rating_value)
+                genre_best[g] = (display_title or manga_id, rating_value)
         for t in themes:
             current = theme_best.get(t)
             if current is None or rating_value > current[1]:
-                theme_best[t] = (display_title or title, rating_value)
+                theme_best[t] = (display_title or manga_id, rating_value)
     return genre_best, theme_best
 
 
@@ -145,7 +145,43 @@ def _load_manga_df(db_path):
         return cached
     conn = sqlite3.connect(db_path)
     try:
-        df = pd.read_sql_query("SELECT * FROM manga_cleaned", conn)
+        df = pd.read_sql_query(
+            """
+            SELECT
+                mangadex_id AS id,
+                mangadex_id,
+                title_name,
+                english_name,
+                japanese_name,
+                synonymns,
+                item_type,
+                volumes,
+                chapters,
+                status,
+                publishing_date,
+                authors,
+                serialization,
+                genres,
+                themes,
+                demographic,
+                description,
+                content_rating,
+                original_language,
+                cover_url,
+                links,
+                updated_at,
+                mal_id,
+                score,
+                scored_by,
+                ranked,
+                popularity,
+                members,
+                favorited
+            FROM manga_merged
+            WHERE mangadex_id NOT LIKE 'mal:%'
+            """,
+            conn,
+        )
     finally:
         conn.close()
     _MANGA_CACHE[db_path] = df
@@ -178,7 +214,7 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
     reading_ids = set(reading_list_service.list_manga_ids(user_id))
     exclude_ids = dnr_ids | reading_ids
     if exclude_ids:
-        manga_df = manga_df[~manga_df["title_name"].isin(exclude_ids)]
+        manga_df = manga_df[~manga_df["id"].isin(exclude_ids)]
 
     ranked, used_current = recommendation_scores(
         manga_df,
@@ -217,9 +253,6 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
                 "score": row.get("score"),
                 "genres": row.get("genres"),
                 "themes": row.get("themes"),
-                "match_score": row.get("match_score"),
-                "internal_score": row.get("internal_score"),
-                "combined_score": row.get("combined_score"),
                 "reasons": reasons,
             }
         )

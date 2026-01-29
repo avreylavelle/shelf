@@ -3,5 +3,8 @@
 !schema.sql
 !db/
 !db/.gitkeep
+db/*.db
+db/*.sqlite
+db/*.sqlite3
 !raw/
 !raw/dataset.txt
