@@ -49,7 +49,9 @@ def init_db(app):
             CREATE TABLE user_ratings (
                 user_id TEXT NOT NULL,
                 manga_id TEXT NOT NULL,
+                canonical_id TEXT,
                 mdex_id TEXT,
+                mal_id INTEGER,
                 rating REAL,
                 recommended_by_us INTEGER DEFAULT 0,
                 finished_reading INTEGER DEFAULT 0,
@@ -67,11 +69,13 @@ def init_db(app):
             CREATE TABLE user_dnr (
                 user_id TEXT NOT NULL,
                 manga_id TEXT NOT NULL,
+                canonical_id TEXT,
                 mdex_id TEXT,
+                mal_id INTEGER,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, manga_id)
             )
-            """
+        """
         )
 
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_reading_list'")
@@ -81,12 +85,14 @@ def init_db(app):
             CREATE TABLE user_reading_list (
                 user_id TEXT NOT NULL,
                 manga_id TEXT NOT NULL,
+                canonical_id TEXT,
                 mdex_id TEXT,
+                mal_id INTEGER,
                 status TEXT DEFAULT 'Plan to Read',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, manga_id)
             )
-            """
+        """
         )
 
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_events'")
@@ -194,6 +200,10 @@ def init_db(app):
         cur.execute("ALTER TABLE user_reading_list ADD COLUMN status TEXT DEFAULT 'Plan to Read'")
     if "mdex_id" not in reading_cols:
         cur.execute("ALTER TABLE user_reading_list ADD COLUMN mdex_id TEXT")
+    if "mal_id" not in reading_cols:
+        cur.execute("ALTER TABLE user_reading_list ADD COLUMN mal_id INTEGER")
+    if "canonical_id" not in reading_cols:
+        cur.execute("ALTER TABLE user_reading_list ADD COLUMN canonical_id TEXT")
 
     # Add password_hash column if missing (existing DB)
     cur.execute("PRAGMA table_info(users)")
@@ -235,6 +245,10 @@ def init_db(app):
     rating_cols = {row[1] for row in cur.fetchall()}
     if "mdex_id" not in rating_cols:
         cur.execute("ALTER TABLE user_ratings ADD COLUMN mdex_id TEXT")
+    if "mal_id" not in rating_cols:
+        cur.execute("ALTER TABLE user_ratings ADD COLUMN mal_id INTEGER")
+    if "canonical_id" not in rating_cols:
+        cur.execute("ALTER TABLE user_ratings ADD COLUMN canonical_id TEXT")
     if "recommended_by_us" not in rating_cols:
         cur.execute("ALTER TABLE user_ratings ADD COLUMN recommended_by_us INTEGER DEFAULT 0")
 
@@ -249,6 +263,10 @@ def init_db(app):
     dnr_cols = {row[1] for row in cur.fetchall()}
     if "mdex_id" not in dnr_cols:
         cur.execute("ALTER TABLE user_dnr ADD COLUMN mdex_id TEXT")
+    if "mal_id" not in dnr_cols:
+        cur.execute("ALTER TABLE user_dnr ADD COLUMN mal_id INTEGER")
+    if "canonical_id" not in dnr_cols:
+        cur.execute("ALTER TABLE user_dnr ADD COLUMN canonical_id TEXT")
 
     cur.execute("DROP VIEW IF EXISTS manga_merged")
     cur.execute(

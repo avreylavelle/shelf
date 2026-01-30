@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 
 DB_PATH = "/opt/manga_recommender_ml/data/db/manga.db"
+UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 
 
 def ensure_columns(conn, table):
@@ -18,6 +19,29 @@ def ensure_columns(conn, table):
 
 
 def backfill_table(conn, table):
+    # Fill mal_id from mdex_id via map when we already have a Mangadex id.
+    conn.execute(
+        f"""
+        UPDATE {table}
+        SET mal_id = (
+            SELECT mm.mal_id
+            FROM manga_map mm
+            WHERE mm.mangadex_id = {table}.mdex_id
+            LIMIT 1
+        )
+        WHERE mal_id IS NULL AND mdex_id IS NOT NULL
+        """
+    )
+
+    # If mdex_id is a MAL-only placeholder, extract the MAL id directly.
+    conn.execute(
+        f"""
+        UPDATE {table}
+        SET mal_id = CAST(SUBSTR(mdex_id, 5) AS INTEGER)
+        WHERE mal_id IS NULL AND mdex_id LIKE 'mal:%'
+        """
+    )
+
     # Fill mal_id from title_name via manga_stats
     conn.execute(
         f"""
@@ -189,11 +213,15 @@ def fallback_match(manga_id, index, stats):
 
 def backfill_table_fuzzy(conn, table, index, stats):
     cur = conn.execute(
-        f"SELECT rowid, manga_id FROM {table} WHERE mal_id IS NULL"
+        f"SELECT rowid, manga_id, mdex_id FROM {table} WHERE mal_id IS NULL"
     )
     rows = cur.fetchall()
     updates = []
-    for rowid, manga_id in rows:
+    for rowid, manga_id, mdex_id in rows:
+        if mdex_id:
+            continue
+        if manga_id and (manga_id.lower().startswith("mal:") or UUID_RE.match(str(manga_id).strip())):
+            continue
         mal_id = fallback_match(manga_id, index, stats)
         if mal_id:
             updates.append((mal_id, rowid))
@@ -283,6 +311,41 @@ def fill_missing_mdex(conn, table):
     conn.commit()
 
 
+def repair_mal_ids(conn, table):
+    # If a Mangadex id is present, it is authoritative for MAL mapping.
+    conn.execute(
+        f"""
+        UPDATE {table}
+        SET mal_id = (
+            SELECT mm.mal_id
+            FROM manga_map mm
+            WHERE mm.mangadex_id = {table}.mdex_id
+            LIMIT 1
+        )
+        WHERE mdex_id IS NOT NULL
+          AND EXISTS (SELECT 1 FROM manga_map mm WHERE mm.mangadex_id = {table}.mdex_id)
+        """
+    )
+    conn.execute(
+        f"""
+        UPDATE {table}
+        SET mal_id = CAST(SUBSTR(mdex_id, 5) AS INTEGER)
+        WHERE mdex_id LIKE 'mal:%'
+        """
+    )
+    # Clear bad MAL ids when we have a Mangadex id with no mapping.
+    conn.execute(
+        f"""
+        UPDATE {table}
+        SET mal_id = NULL
+        WHERE mdex_id IS NOT NULL
+          AND mdex_id NOT LIKE 'mal:%'
+          AND mdex_id LIKE '%-%'
+          AND NOT EXISTS (SELECT 1 FROM manga_map mm WHERE mm.mangadex_id = {table}.mdex_id)
+        """
+    )
+
+
 def report_unmatched(conn, table):
     cur = conn.execute(
         f"""
@@ -316,6 +379,10 @@ def main():
 
         for table in ("user_ratings", "user_dnr", "user_reading_list"):
             fill_missing_mdex(conn, table)
+
+        for table in ("user_ratings", "user_dnr", "user_reading_list"):
+            repair_mal_ids(conn, table)
+        conn.commit()
 
         for table in ("user_ratings", "user_dnr", "user_reading_list"):
             missing = report_unmatched(conn, table)
