@@ -1,65 +1,42 @@
-Shelf Expansion Roadmap (Updated)
+Shelf Roadmap (Current)
 
-Phase 1 — Core UX & Data Integrity (Done)
-- UX polish baseline: consistent nav, toasts, loading states, hover states, layout fixes
-- Ratings/Reading/DNR exclusivity rules enforced across all flows
-- Sorting + filters with saved UI prefs for Ratings, DNR, Reading List
-- Language-aware display + alphabetical sorting by displayed language
-- Admin tools: user switch + CSV import/export
-- Confirm: log + handle all remaining server errors and edge cases
+ML per-user (Next milestone)
+Phase 1 — Data model
+- Add tables: user_interactions, item_features, user_feature_cache, user_recommendation_history
+- Migrations + indexes
 
-Phase 1.5 — Recommendation Engine Improvements (Done)
-- Reroll button + guardrails (anchors + weighted mid-tier shuffle)
-- Diversity controls: genre/theme spread + avoid near-duplicate series
-- Freshness toggle: include less popular (novelty boost)
-- Explainability badges per item (requested/history/rated)
-- Advanced options modal (recs)
-- Earliest year preference (soft bias)
+Phase 2 — Item features
+- Build one-hot genre/theme vectors
+- (Optional later) add text vectors from title/description
+- Store sparse vectors in item_features
 
-Phase 2 — Personalization & User Modeling (Done)
-- Per-user preference model (explicit + implicit signals)
-- Store user feedback signals: clicked, rated, DNR, reading list, finished
-- Per-user weighting: tune match_score weights based on history
-- Feature flags for A/B: baseline vs personalized weights
-- Export per-user model snapshot (for debugging)
-- Guardrails: cold-start fallback and capped influence
-- Transparency: personalization toggle + strength ramping
+Phase 3 — User vector
+- Aggregate ratings/reading/DNR/clicks into a per-user vector
+- Cache with last_event_id / updated_at
 
-Phase 3 — ML Iteration (Opt-in)
-- Lightweight per-user ML (e.g., logistic regression or matrix factorization)
-- Model retrain schedule + caching
-- Training dataset pipeline: ratings + implicit feedback
-- Guardrails: cold-start fallback, minimum data threshold
+Phase 4 — Ranking blend
+- Score candidates with cosine similarity
+- Blend with existing combined_score
+- Fallback to baseline when sparse
 
-Phase 4 — Content Expansion (In progress)
-- Content type filters in recommendations (Manga/Manhwa/Manhua/Novel/Light Novel/etc.)
-- Add content types: Manga | Light Novel | Book
-- Normalize IDs + metadata across datasets
-- Cross-type recommendations (manga → novels, etc.)
-- Per-type filters and UI tabs
+Phase 5 — Feedback loop
+- Log shown items
+- Add light exposure decay to reduce repeats
 
-Phase 5 — Discovery & Social (Optional)
-- Explore page: trending, top-rated, seasonal picks
-- Public lists + shareable profile page
-- Optional follows/likes
+Phase 6 — Controls & tuning
+- Personalize toggle + env weight knobs (ml_weight)
+- Basic debug snapshot for user vector
+
+Content expansion (In progress)
+- Audit ID normalization across datasets; fill any remaining gaps
+- Cross-type recommendations (manga → novel, etc.)
+- Per-type filters + UI tabs
+
+Discovery & Social (Optional)
+- Explore page: trending/top/seasonal
+- Public lists + shareable profile
+- Follows/likes
 
 Notes
-- Randomization should never return already-rated or DNR items.
-- “Reroll” uses same filters, just reshuffles eligible set.
-- ML should remain optional and transparent; keep baseline recommender.
-
-Recent fixes (Done)
-- Sort preferences persisted for Ratings/DNR/Reading List + content types default to all
-- Rating note (0–10) added in rate modals
-- “Recommended by us” defaults unchecked
-- Added guide section on the Shelf landing page
-- Recommendation reasons reworded to avoid repetitive “Because you liked…”
-- Blacklist selection moved to Recommendations (resets on refresh) + blacklist history tracked
-- Dark mode applied across the site (Monokai‑style dark grey)
-
-Latest fixes (Done)
-- /ratings shows all by default (removed Show All toggle)
-- Content types expanded to include Light Novel + Novel (ratings/DNR/reading list)
-- Reading list/DNR/ratings now resolve MAL entries via manga_map for covers + details
-- Dashboard summary includes counts for Ratings, Reading List, DNR
-- Recommendations now pass mal_id + synonyms so English display names match /search
+- Reroll intentionally disabled (to be replaced by ML parameter randomization later).
+- Baseline recommender remains available and transparent.
