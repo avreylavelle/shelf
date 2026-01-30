@@ -10,11 +10,12 @@ def list_by_user(user_id, sort="chron"):
     db = get_db()
     cur = db.execute(
         f"""
-        SELECT d.user_id, d.manga_id, d.created_at, m.english_name, m.japanese_name, m.title_name, m.item_type,
+        SELECT d.user_id, d.manga_id, d.created_at, m.english_name, m.japanese_name, m.title_name, m.item_type, m.cover_url, m.mal_id,
                COALESCE(d.mdex_id, m.mangadex_id) AS mdex_id
         FROM user_dnr d
         LEFT JOIN manga_merged m
             ON m.mangadex_id = d.mdex_id
+            OR (d.mdex_id IS NULL AND m.mangadex_id = d.manga_id)
             OR (d.mdex_id IS NULL AND m.title_name = d.manga_id)
         WHERE lower(d.user_id) = lower(?)
         {order_sql}

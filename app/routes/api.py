@@ -49,10 +49,86 @@ def _get_value(row, key):
         return row[key] if hasattr(row, "keys") and key in row.keys() else None
 
 
+_STATS_NAME_CACHE = {}
+
+
+def _normalize_text(value):
+    if value is None:
+        return ""
+    return re.sub(r"\s+", " ", str(value)).strip().lower()
+
+
+def _english_like(value):
+    if not value:
+        return False
+    latin = 0
+    nonlatin = 0
+    for ch in str(value):
+        if ch.isalpha():
+            if ord(ch) < 128:
+                latin += 1
+            else:
+                nonlatin += 1
+    return latin > 0 and nonlatin == 0
+
+
+def _best_english_synonym(synonyms, title):
+    if not synonyms:
+        return None
+    title_norm = _normalize_text(title)
+    best = None
+    best_key = None
+    for raw in synonyms:
+        candidate = str(raw).strip()
+        if not candidate:
+            continue
+        if title_norm and _normalize_text(candidate) == title_norm:
+            continue
+        if not _english_like(candidate):
+            continue
+        key = (_variant_score(candidate), len(candidate))
+        if best is None or key < best_key:
+            best = candidate
+            best_key = key
+    return best
+
+
+def _stats_english_name(mal_id):
+    if not mal_id:
+        return None
+    try:
+        mal_id = int(mal_id)
+    except Exception:
+        return None
+    cached = _STATS_NAME_CACHE.get(mal_id)
+    if cached is not None:
+        return cached
+    row = manga_repo.get_stats_by_mal_id(mal_id)
+    name = None
+    if row:
+        try:
+            name = row.get("english_name")
+        except AttributeError:
+            name = row["english_name"] if "english_name" in row.keys() else None
+    _STATS_NAME_CACHE[mal_id] = name
+    return name
+
+
 def _display_title(row, language):
+    title = _get_value(row, "title_name") or _get_value(row, "manga_id")
     if language == "Japanese":
-        return _get_value(row, "japanese_name") or _get_value(row, "title_name") or _get_value(row, "manga_id")
-    return _get_value(row, "english_name") or _get_value(row, "title_name") or _get_value(row, "manga_id")
+        return _get_value(row, "japanese_name") or title
+    english = _get_value(row, "english_name")
+    if english and _normalize_text(english) != _normalize_text(title):
+        return english
+    stats_name = _stats_english_name(_get_value(row, "mal_id"))
+    if stats_name:
+        return stats_name
+    synonyms = parse_list(_get_value(row, "synonymns"))
+    synonym_pick = _best_english_synonym(synonyms, title)
+    if synonym_pick:
+        return synonym_pick
+    return english or title
 
 
 
@@ -235,6 +311,7 @@ def list_dnr():
             "english_name": row["english_name"],
             "japanese_name": row["japanese_name"],
             "item_type": _get_value(row, "item_type"),
+            "cover_url": _get_value(row, "cover_url"),
             "created_at": row["created_at"],
         }
         for row in rows
@@ -362,6 +439,7 @@ def list_ratings():
             "english_name": row["english_name"],
             "japanese_name": row["japanese_name"],
             "item_type": _get_value(row, "item_type"),
+            "cover_url": _get_value(row, "cover_url"),
             "rating": row["rating"],
             "recommended_by_us": row["recommended_by_us"],
             "finished_reading": row["finished_reading"],
@@ -649,6 +727,7 @@ def admin_import_ratings():
             return jsonify({"error": error}), 400
         count += 1
 
+    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True, "count": count})
 
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Recommendations · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130a" />
   </head>
   <body>
     <main class="page">
@@ -93,7 +93,7 @@
           <div id="recs-loading" class="loading" aria-live="polite" aria-busy="false">Loading recommendations…</div>
         </div>
 
-        <div id="recommendations" class="list">
+        <div id="recommendations" class="results-grid">
           <p class="muted">Choose genres/themes and click “Get Recommendations”.</p>
         </div>
       </section>
@@ -192,6 +192,6 @@
       </div>
     </dialog>
 
-    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260129d"></script>
+    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260129e"></script>
   </body>
 </html>

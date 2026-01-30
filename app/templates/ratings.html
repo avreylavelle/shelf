@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Ratings · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260129h" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130a" />
   </head>
   <body>
     <main class="page">
@@ -46,7 +46,7 @@
           <button id="toggle-ratings" class="ghost">Show All</button>
           <div id="ratings-loading" class="loading" aria-live="polite" aria-busy="false">Loading ratings…</div>
         </div>
-        <div id="ratings" class="list"></div>
+        <div id="ratings" class="results-grid"></div>
       </section>
     </main>
 
@@ -98,6 +98,6 @@
         <button id="rate-modal-add" type="button">Add</button>
       </div>
     </dialog>
-    <script src="{{ url_for('static', filename='ratings.js') }}?v=20260129c"></script>
+    <script src="{{ url_for('static', filename='ratings.js') }}?v=20260130a"></script>
   </body>
 </html>

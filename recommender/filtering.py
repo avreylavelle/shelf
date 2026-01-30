@@ -9,6 +9,8 @@ def filter_nsfw(df, profile):
                     and "Ecchi" not in str(x) 
                     and "Erotica" not in str(x)
         )]
+        if "content_rating" in df.columns:
+            df = df[~df["content_rating"].fillna("").str.lower().isin({"erotica", "pornographic"})]
         
     return df
 

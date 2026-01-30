@@ -6,7 +6,6 @@ Shelf is a content‑based manga recommender with a **web app as the primary int
 The project currently ships with:
 - **Web app (Flask + JS)** under `/shelf` with login, dashboard, ratings, recommendations, reading list, and DNR.
 - **SQLite‑backed** data and user profiles.
-- **Legacy CLI/TUI** archived under `legacy/cli` (kept for reference).
 
 ## Key Features
 
@@ -63,14 +62,6 @@ manga_recommender_ml/
     raw/               # Raw dataset files (incl. source link)
     schema.sql         # Schema used for initialization
   scripts/             # One-off utilities (e.g., DB init)
-  legacy/              # Archived CLI stack (unused)
-    cli/
-      ui_terminal/
-      services/
-      core/
-      data/
-      user/
-      main.py
   main.py              # Web entrypoint (dev)
   requirements.txt
 ```
@@ -98,11 +89,6 @@ Then open:
 ### 3) Run Web App (prod)
 ```
 gunicorn -w 2 -b 127.0.0.1:5000 app.app:app
-```
-
-### 4) Legacy CLI (optional)
-```
-python -m legacy.cli.main
 ```
 
 ## Configuration

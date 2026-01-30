@@ -112,7 +112,7 @@ def recompute_affinities(user_id, db_path=None):
         (user_id,),
     ).fetchall()
     clicked_rows = db.execute(
-        "SELECT DISTINCT manga_id FROM user_events WHERE lower(user_id) = lower(?) AND event_type = 'clicked' AND manga_id IS NOT NULL",
+        "SELECT DISTINCT manga_id FROM user_events WHERE lower(user_id) = lower(?) AND event_type IN ('clicked', 'details') AND manga_id IS NOT NULL",
         (user_id,),
     ).fetchall()
 

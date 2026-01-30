@@ -1,7 +1,7 @@
 import os
 import sqlite3
 
-from flask import Flask, redirect, render_template, request, session, url_for
+from flask import Flask, redirect, render_template, session, url_for
 
 from app.db import close_db
 from app.routes.api import api_bp
@@ -49,6 +49,7 @@ def init_db(app):
             CREATE TABLE user_ratings (
                 user_id TEXT NOT NULL,
                 manga_id TEXT NOT NULL,
+                mdex_id TEXT,
                 rating REAL,
                 recommended_by_us INTEGER DEFAULT 0,
                 finished_reading INTEGER DEFAULT 0,
@@ -66,6 +67,7 @@ def init_db(app):
             CREATE TABLE user_dnr (
                 user_id TEXT NOT NULL,
                 manga_id TEXT NOT NULL,
+                mdex_id TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, manga_id)
             )
@@ -79,6 +81,7 @@ def init_db(app):
             CREATE TABLE user_reading_list (
                 user_id TEXT NOT NULL,
                 manga_id TEXT NOT NULL,
+                mdex_id TEXT,
                 status TEXT DEFAULT 'Plan to Read',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (user_id, manga_id)
@@ -189,6 +192,8 @@ def init_db(app):
     reading_cols = {row[1] for row in cur.fetchall()}
     if "status" not in reading_cols:
         cur.execute("ALTER TABLE user_reading_list ADD COLUMN status TEXT DEFAULT 'Plan to Read'")
+    if "mdex_id" not in reading_cols:
+        cur.execute("ALTER TABLE user_reading_list ADD COLUMN mdex_id TEXT")
 
     # Add password_hash column if missing (existing DB)
     cur.execute("PRAGMA table_info(users)")
@@ -228,6 +233,8 @@ def init_db(app):
     # Add recommended_by_us column if missing (existing DB)
     cur.execute("PRAGMA table_info(user_ratings)")
     rating_cols = {row[1] for row in cur.fetchall()}
+    if "mdex_id" not in rating_cols:
+        cur.execute("ALTER TABLE user_ratings ADD COLUMN mdex_id TEXT")
     if "recommended_by_us" not in rating_cols:
         cur.execute("ALTER TABLE user_ratings ADD COLUMN recommended_by_us INTEGER DEFAULT 0")
 
@@ -237,9 +244,16 @@ def init_db(app):
     if "finished_reading" not in rating_cols:
         cur.execute("ALTER TABLE user_ratings ADD COLUMN finished_reading INTEGER DEFAULT 0")
 
+    # Add mdex_id column if missing (existing DB)
+    cur.execute("PRAGMA table_info(user_dnr)")
+    dnr_cols = {row[1] for row in cur.fetchall()}
+    if "mdex_id" not in dnr_cols:
+        cur.execute("ALTER TABLE user_dnr ADD COLUMN mdex_id TEXT")
+
+    cur.execute("DROP VIEW IF EXISTS manga_merged")
     cur.execute(
         """
-        CREATE VIEW IF NOT EXISTS manga_merged AS
+        CREATE VIEW manga_merged AS
         SELECT
             core.id AS mangadex_id,
             core.link,

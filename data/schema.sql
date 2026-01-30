@@ -16,35 +16,41 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS user_ratings (
     user_id TEXT NOT NULL,
     manga_id TEXT NOT NULL,
+    mdex_id TEXT,
     rating REAL,
+    recommended_by_us INTEGER DEFAULT 0,
+    finished_reading INTEGER DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, manga_id),
     FOREIGN KEY (user_id) REFERENCES users(username)
 );
 
-CREATE TABLE IF NOT EXISTS manga_cleaned (
-    id TEXT,
-    link TEXT,
-    title_name TEXT,
-    score REAL,
-    scored_by REAL,
-    ranked REAL,
-    popularity REAL,
-    members REAL,
-    favorited REAL,
-    synonymns TEXT,
-    japanese_name TEXT,
-    english_name TEXT,
-    item_type TEXT,
-    volumes TEXT,
-    chapters TEXT,
-    status TEXT,
-    publishing_date TEXT,
-    authors TEXT,
-    serialization TEXT,
-    genres TEXT,
-    themes TEXT,
-    demographic TEXT
+CREATE TABLE IF NOT EXISTS user_dnr (
+    user_id TEXT NOT NULL,
+    manga_id TEXT NOT NULL,
+    mdex_id TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, manga_id),
+    FOREIGN KEY (user_id) REFERENCES users(username)
+);
+
+CREATE TABLE IF NOT EXISTS user_reading_list (
+    user_id TEXT NOT NULL,
+    manga_id TEXT NOT NULL,
+    mdex_id TEXT,
+    status TEXT DEFAULT 'Plan to Read',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, manga_id),
+    FOREIGN KEY (user_id) REFERENCES users(username)
+);
+
+CREATE TABLE IF NOT EXISTS user_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    manga_id TEXT,
+    event_type TEXT NOT NULL,
+    event_value REAL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS manga_stats (

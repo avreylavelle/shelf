@@ -151,13 +151,13 @@ function cssEscape(value) {
 }
 
 function removeRecommendation(mangaId) {
-  const selector = `.list-item[data-id="${cssEscape(mangaId)}"]`;
+  const selector = `.result-card[data-id="${cssEscape(mangaId)}"]`;
   const el = recommendationsEl.querySelector(selector);
   if (el) el.remove();
 }
 
 function displayForTitle(mangaId) {
-  const selector = `.list-item[data-id="${cssEscape(mangaId)}"]`;
+  const selector = `.result-card[data-id="${cssEscape(mangaId)}"]`;
   const el = recommendationsEl.querySelector(selector);
   return (el && el.dataset.display) || mangaId;
 }
@@ -174,18 +174,19 @@ function renderRecommendations(items) {
       const currentRating = state.ratingsMap[mangaId];
       const ratingText = currentRating == null ? "" : `Your rating: ${currentRating}`;
       const displayTitle = item.display_title || item.title;
+      const cover = item.cover_url
+        ? `<img class="result-cover" src="${item.cover_url}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
+        : `<div class="result-cover placeholder"></div>`;
       const reasons = (item.reasons || [])
         .map((reason) => `<span class="badge">${reason}</span>`)
         .join("");
       return `
-        <div class="list-item" data-id="${mangaId}" data-display="${displayTitle}">
-          <div class="rec-main">
-            <strong>${displayTitle}</strong>
-            ${ratingText ? `<div class="muted">${ratingText}</div>` : ""}
-            ${reasons ? `<div class="badges">${reasons}</div>` : ""}
-            <div class="details" data-details="${mangaId}"></div>
-          </div>
-          <div class="rec-actions">
+        <div class="result-card" data-id="${mangaId}" data-display="${displayTitle}">
+          <strong>${displayTitle}</strong>
+          ${cover}
+          ${ratingText ? `<div class="muted">${ratingText}</div>` : ""}
+          ${reasons ? `<div class="badges">${reasons}</div>` : ""}
+          <div class="result-actions">
             <button class="details-btn" data-id="${mangaId}" type="button">Details</button>
             <button class="add-open" data-id="${mangaId}" data-display="${displayTitle}" type="button">Add</button>
           </div>
@@ -537,7 +538,7 @@ if (infoModal) {
 recommendationsEl.addEventListener("click", (event) => {
   if (event.target.classList.contains("details-btn")) {
     const mangaId = event.target.dataset.id;
-    const title = event.target.closest(".list-item")?.dataset?.display || mangaId;
+    const title = event.target.closest(".result-card")?.dataset?.display || mangaId;
     handleDetails(mangaId, title).catch(() => {});
   }
 

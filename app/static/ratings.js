@@ -1,8 +1,4 @@
 const ratingsEl = document.getElementById("ratings");
-const searchInput = document.getElementById("rating-search");
-const searchBtn = document.getElementById("rating-search-btn");
-const searchStatus = document.getElementById("rating-search-status");
-const searchResults = document.getElementById("rating-search-results");
 const ratingsSort = document.getElementById("ratings-sort");
 const ratingsFilter = document.getElementById("ratings-filter");
 const toggleRatings = document.getElementById("toggle-ratings");
@@ -23,6 +19,12 @@ const rateModalAdd = document.getElementById("rate-modal-add");
 const rateModalReading = document.getElementById("rate-modal-reading");
 const rateModalClose = document.getElementById("rate-modal-close");
 
+
+const state = {
+  expanded: false,
+  sort: "chron",
+  items: [],
+};
 
 const listState = {
   ratings: new Set(),
@@ -49,13 +51,6 @@ function getLocations(mangaId) {
   return locations;
 }
 
-const state = {
-  expanded: false,
-  sort: "chron",
-  items: [],
-  searchItems: [],
-};
-
 function selectedTypes() {
   return typeOptions.filter((opt) => opt.checked).map((opt) => opt.value);
 }
@@ -70,12 +65,6 @@ function setDefaultTypes() {
   typeOptions.forEach((opt) => {
     opt.checked = true;
   });
-}
-
-function filterByType(items) {
-  const typeSet = selectedTypeSet();
-  if (!typeSet) return items;
-  return items.filter((item) => !item.item_type || typeSet.has(item.item_type));
 }
 
 function openRateModal(mangaId, displayTitle, rating = "", recommended = false, finished = false) {
@@ -94,54 +83,6 @@ function openRateModal(mangaId, displayTitle, rating = "", recommended = false, 
 function closeRateModal() {
   if (!rateModal) return;
   rateModal.close();
-}
-
-function setSearchStatus(text, isError = false) {
-  if (!searchStatus) return;
-  searchStatus.textContent = text;
-  searchStatus.className = isError ? "status error" : "status";
-}
-
-function renderSearchResults(items) {
-  if (!searchResults) return;
-  if (!items.length) {
-    searchResults.innerHTML = "<p class='muted'>No matches.</p>";
-    return;
-  }
-  searchResults.innerHTML = items
-    .map(
-      (item) => `
-        <div class="list-item">
-          <div>
-            <strong>${item.display_title || item.title}</strong>
-            <div class="muted">Score: ${item.score ?? "n/a"}</div>
-            ${getLocations(item.id).length ? `<div class="badge">Currently in: ${getLocations(item.id).join(", ")}</div>` : ""}
-            <div class="details" data-details="${item.id}"></div>
-          </div>
-          <div class="row">
-            <button class="details-btn" data-id="${item.id}" type="button">Details</button>
-            <button class="rate-open" data-id="${item.id}" data-display="${item.display_title || item.title}" type="button">Add</button>
-          </div>
-        </div>
-      `
-    )
-    .join("");
-}
-
-async function searchTitles() {
-  if (!searchInput || !searchResults) return;
-  const query = searchInput.value.trim();
-  if (!query) {
-    setSearchStatus("Enter a title to search.", true);
-    return;
-  }
-  setSearchStatus("Searching...");
-  await loadListState();
-  const data = await api(`/api/manga/search?q=${encodeURIComponent(query)}`);
-  const items = (data.items || []).filter((item) => !listState.ratings.has(item.id));
-  state.searchItems = items;
-  renderSearchResults(filterByType(state.searchItems));
-  setSearchStatus("");
 }
 
 async function loadUiPrefs() {
@@ -208,25 +149,25 @@ function renderRatings() {
   }
 
   ratingsEl.innerHTML = items
-    .map(
-      (item) => {
-        const mangaId = item.mdex_id || item.manga_id;
-        return `
-        <div class="list-item">
-          <div>
-            <strong>${item.display_title || item.manga_id}</strong>
-            <span class="muted">Rating: ${item.rating ?? "n/a"}</span>
-            <div class="details" data-details="${mangaId}"></div>
-          </div>
-          <div class="row">
+    .map((item) => {
+      const mangaId = item.mdex_id || item.manga_id;
+      const title = item.display_title || item.manga_id;
+      const cover = item.cover_url
+        ? `<img class="result-cover" src="${item.cover_url}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
+        : `<div class="result-cover placeholder"></div>`;
+      return `
+        <div class="result-card" data-id="${mangaId}" data-display="${title}">
+          <strong>${title}</strong>
+          ${cover}
+          <div class="muted">Rating: ${item.rating ?? "n/a"}</div>
+          <div class="result-actions">
             <button class="details-btn" data-id="${mangaId}" type="button">Details</button>
-            <button class="rate-open" data-id="${mangaId}" data-display="${item.display_title || item.manga_id}" data-rating="${item.rating ?? ""}" data-rec="${item.recommended_by_us ? 1 : 0}" data-finished="${item.finished_reading ? 1 : 0}" type="button">Update</button>
+            <button class="rate-open" data-id="${mangaId}" data-display="${title}" data-rating="${item.rating ?? ""}" data-rec="${item.recommended_by_us ? 1 : 0}" data-finished="${item.finished_reading ? 1 : 0}" type="button">Update</button>
             <button class="delete-btn" data-manga-id="${mangaId}">Remove</button>
           </div>
         </div>
       `;
-      }
-    )
+    })
     .join("");
 
   toggleRatings.textContent = state.expanded ? "Show Less" : "Show All";
@@ -260,18 +201,6 @@ async function deleteRating(mangaId) {
   await loadRatings();
 }
 
-if (searchBtn) {
-  searchBtn.addEventListener("click", () => searchTitles().catch((e) => setSearchStatus(e.message, true)));
-}
-if (searchInput) {
-  searchInput.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      searchTitles().catch((e) => setSearchStatus(e.message, true));
-    }
-  });
-}
-
 if (ratingsFilter) {
   ratingsFilter.addEventListener("input", () => {
     renderRatings();
@@ -292,7 +221,7 @@ toggleRatings.addEventListener("click", () => {
 ratingsEl.addEventListener("click", (event) => {
   if (event.target.classList.contains("details-btn")) {
     const mangaId = event.target.dataset.id;
-    const title = event.target.closest(".list-item")?.querySelector("strong")?.textContent || mangaId;
+    const title = event.target.closest(".result-card")?.querySelector("strong")?.textContent || mangaId;
     handleDetails(mangaId, title).catch(() => {});
   }
   if (event.target.classList.contains("delete-btn")) {
@@ -308,21 +237,6 @@ ratingsEl.addEventListener("click", (event) => {
     openRateModal(mangaId, display, rating, rec, finished);
   }
 });
-
-if (searchResults) {
-  searchResults.addEventListener("click", (event) => {
-    if (event.target.classList.contains("details-btn")) {
-      const mangaId = event.target.dataset.id;
-      const title = event.target.closest(".list-item")?.querySelector("strong")?.textContent || mangaId;
-      handleDetails(mangaId, title).catch(() => {});
-      return;
-    }
-    if (!event.target.classList.contains("rate-open")) return;
-    const mangaId = event.target.dataset.id;
-    const display = event.target.dataset.display;
-    openRateModal(mangaId, display);
-  });
-}
 
 if (typesButtons.length && typesModal) {
   typesButtons.forEach((btn) => btn.addEventListener("click", () => typesModal.showModal()));
@@ -346,9 +260,6 @@ if (typesSave && typesModal) {
     saveUiPref("ratings_types", selectedTypes());
     typesModal.close();
     renderRatings();
-    if (state.searchItems.length) {
-      renderSearchResults(filterByType(state.searchItems));
-    }
   });
 }
 if (typesCancel && typesModal) {
@@ -385,8 +296,6 @@ if (rateModalAdd) {
     })
       .then(() => {
         showToast(`${display} added to ratings with rating ${ratingDisplay}`);
-        if (searchInput) searchInput.value = "";
-        if (searchResults) searchResults.innerHTML = "";
         setTimeout(() => window.location.reload(), 600);
       })
       .catch((err) => {

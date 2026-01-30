@@ -17,11 +17,12 @@ def list_by_user(user_id, sort="chron"):
     cur = db.execute(
         f"""
         SELECT r.user_id, r.manga_id, r.rating, r.recommended_by_us, r.finished_reading, r.created_at,
-               m.title_name, m.english_name, m.japanese_name, m.item_type,
+               m.title_name, m.english_name, m.japanese_name, m.item_type, m.cover_url, m.mal_id,
                COALESCE(r.mdex_id, m.mangadex_id) AS mdex_id
         FROM user_ratings r
         LEFT JOIN manga_merged m
             ON m.mangadex_id = r.mdex_id
+            OR (r.mdex_id IS NULL AND m.mangadex_id = r.manga_id)
             OR (r.mdex_id IS NULL AND m.title_name = r.manga_id)
         WHERE lower(r.user_id) = lower(?)
         {order_sql}
@@ -39,6 +40,7 @@ def list_ratings_map(user_id):
         FROM user_ratings r
         LEFT JOIN manga_merged m
             ON m.mangadex_id = r.mdex_id
+            OR (r.mdex_id IS NULL AND m.mangadex_id = r.manga_id)
             OR (r.mdex_id IS NULL AND m.title_name = r.manga_id)
         WHERE lower(r.user_id) = lower(?)
         """,

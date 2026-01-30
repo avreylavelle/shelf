@@ -5,6 +5,7 @@ import pandas as pd
 
 from app.repos import profile as profile_repo
 from app.repos import ratings as ratings_repo
+from app.repos import manga as manga_repo
 from app.services import dnr as dnr_service
 from app.services import reading_list as reading_list_service
 from recommender.recommender import recommendation_scores
@@ -13,12 +14,73 @@ from utils.parsing import parse_list
 
 _MANGA_CACHE = {}
 _OPTIONS_CACHE = {}
+_STATS_NAME_CACHE = {}
+
+
+def _english_like(value):
+    if not value:
+        return False
+    latin = 0
+    nonlatin = 0
+    for ch in str(value):
+        if ch.isalpha():
+            if ord(ch) < 128:
+                latin += 1
+            else:
+                nonlatin += 1
+    return latin > 0 and nonlatin == 0
+
+
+def _stats_english_name(mal_id):
+    if not mal_id:
+        return None
+    try:
+        mal_id = int(mal_id)
+    except Exception:
+        return None
+    cached = _STATS_NAME_CACHE.get(mal_id)
+    if cached is not None:
+        return cached
+    row = manga_repo.get_stats_by_mal_id(mal_id)
+    name = None
+    if row:
+        try:
+            name = row.get("english_name")
+        except AttributeError:
+            name = row["english_name"] if "english_name" in row.keys() else None
+    _STATS_NAME_CACHE[mal_id] = name
+    return name
+
+
+def _best_synonym(row, title):
+    synonyms = parse_list(row.get("synonymns"))
+    if not synonyms:
+        return None
+    for raw in synonyms:
+        candidate = str(raw).strip()
+        if not candidate:
+            continue
+        if candidate.strip().lower() == (title or "").strip().lower():
+            continue
+        if _english_like(candidate):
+            return candidate
+    return None
 
 
 def _display_title_for_row(row, language):
+    title = row.get("title_name") or row.get("english_name") or row.get("japanese_name") or ""
     if language == "Japanese":
-        return row.get("japanese_name") or row.get("title_name") or row.get("english_name") or ""
-    return row.get("english_name") or row.get("title_name") or row.get("japanese_name") or ""
+        return row.get("japanese_name") or title
+    english = row.get("english_name")
+    if english and str(english).strip().lower() != str(title).strip().lower():
+        return english
+    stats_name = _stats_english_name(row.get("mal_id"))
+    if stats_name:
+        return stats_name
+    synonym = _best_synonym(row, title)
+    if synonym:
+        return synonym
+    return english or title
 
 
 def _build_rated_lookup(manga_df, read_manga, language):
@@ -250,6 +312,7 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
                 "title": row.get("title_name"),
                 "english_name": row.get("english_name"),
                 "japanese_name": row.get("japanese_name"),
+                "cover_url": row.get("cover_url"),
                 "score": row.get("score"),
                 "genres": row.get("genres"),
                 "themes": row.get("themes"),
