@@ -13,6 +13,8 @@ def ensure_columns(conn, table):
         conn.execute(f"ALTER TABLE {table} ADD COLUMN mal_id INTEGER")
     if "mdex_id" not in cols:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN mdex_id TEXT")
+    if "canonical_id" not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN canonical_id TEXT")
 
 
 def backfill_table(conn, table):
@@ -43,6 +45,18 @@ def backfill_table(conn, table):
             LIMIT 1
         )
         WHERE mdex_id IS NULL AND mal_id IS NOT NULL
+        """
+    )
+
+    conn.execute(
+        f"""
+        UPDATE {table}
+        SET canonical_id = COALESCE(
+            mdex_id,
+            CASE WHEN mal_id IS NOT NULL THEN 'mal:' || mal_id END,
+            manga_id
+        )
+        WHERE canonical_id IS NULL
         """
     )
 
@@ -205,7 +219,10 @@ def fill_missing_mdex(conn, table):
             (mal_id,),
         ).fetchone()
         if map_row:
-            conn.execute(f"UPDATE {table} SET mdex_id = ? WHERE rowid = ?", (map_row[0], rowid))
+            conn.execute(
+                f"UPDATE {table} SET mdex_id = ?, canonical_id = COALESCE(canonical_id, ?) WHERE rowid = ?",
+                (map_row[0], map_row[0], rowid),
+            )
             continue
 
         stats_row = conn.execute(
@@ -259,7 +276,10 @@ def fill_missing_mdex(conn, table):
             "INSERT OR REPLACE INTO manga_map (mangadex_id, mal_id, match_method) VALUES (?, ?, ?)",
             (mdex_id, mal_id, "mal_only"),
         )
-        conn.execute(f"UPDATE {table} SET mdex_id = ? WHERE rowid = ?", (mdex_id, rowid))
+        conn.execute(
+            f"UPDATE {table} SET mdex_id = ?, canonical_id = COALESCE(canonical_id, ?) WHERE rowid = ?",
+            (mdex_id, mdex_id, rowid),
+        )
     conn.commit()
 
 

@@ -269,6 +269,11 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
     if not profile:
         return [], False
 
+    history_blacklist_genres = list((profile.get("blacklist_genres") or {}).keys())
+    history_blacklist_themes = list((profile.get("blacklist_themes") or {}).keys())
+    combined_blacklist_genres = list(dict.fromkeys((blacklist_genres or []) + history_blacklist_genres))
+    combined_blacklist_themes = list(dict.fromkeys((blacklist_themes or []) + history_blacklist_themes))
+
     read_manga = ratings_repo.list_ratings_map(user_id)
     manga_df = _load_manga_df(db_path)
 
@@ -324,8 +329,8 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
         personalize=personalize,
         earliest_year=earliest_year,
         content_types=content_types,
-        blacklist_genres=blacklist_genres,
-        blacklist_themes=blacklist_themes,
+        blacklist_genres=combined_blacklist_genres,
+        blacklist_themes=combined_blacklist_themes,
     )
 
     if ranked is None or ranked.empty:

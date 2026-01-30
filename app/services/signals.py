@@ -3,6 +3,7 @@ import sqlite3
 
 from app.db import get_db
 from app.services import profile as profile_service
+from app.repos import manga as manga_repo
 from utils.parsing import parse_list
 
 CLICK_WEIGHT = 0.1
@@ -25,49 +26,74 @@ def _resolve_db_path(db_path):
 
 
 def record_event(user_id, event_type, manga_id=None, value=None):
+    canonical_id = None
+    if manga_id:
+        resolved = manga_repo.resolve_manga_ref(manga_id)
+        canonical_id = resolved.get("canonical_id") or manga_id
     db = get_db()
     db.execute(
         "INSERT INTO user_events (user_id, manga_id, event_type, event_value) VALUES (?, ?, ?, ?)",
-        (user_id, manga_id, event_type, value),
+        (user_id, canonical_id, event_type, value),
     )
     db.commit()
 
 
 def _fetch_manga_tags(db_path, manga_ids):
-    ids = [mid for mid in set(manga_ids) if mid]
+    ids = [str(mid).strip() for mid in set(manga_ids) if mid]
     if not ids:
         return {}
+    mdex_ids = []
+    mal_ids = []
+    for mid in ids:
+        if mid.lower().startswith("mal:"):
+            mal_text = mid.split(":", 1)[-1].strip()
+            try:
+                mal_ids.append(int(mal_text))
+            except (TypeError, ValueError):
+                continue
+        else:
+            mdex_ids.append(mid)
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     try:
         results = {}
         chunk_size = 200
-        for i in range(0, len(ids), chunk_size):
-            chunk = ids[i : i + chunk_size]
+        for i in range(0, len(mdex_ids), chunk_size):
+            chunk = mdex_ids[i : i + chunk_size]
             placeholders = ",".join(["?"] * len(chunk))
             query = f"""
-                SELECT mangadex_id, title_name, english_name, japanese_name, genres, themes
+                SELECT mangadex_id, mal_id, genres, themes
                 FROM manga_merged
-                WHERE (mangadex_id IN ({placeholders})
-                   OR title_name IN ({placeholders})
-                   OR english_name IN ({placeholders})
-                   OR japanese_name IN ({placeholders}))
-                  AND mangadex_id NOT LIKE 'mal:%'
+                WHERE mangadex_id IN ({placeholders})
             """
-            params = chunk + chunk + chunk + chunk
-            for row in conn.execute(query, params):
+            for row in conn.execute(query, chunk):
                 payload = {
                     "genres": parse_list(row["genres"]),
                     "themes": parse_list(row["themes"]),
                 }
                 if row["mangadex_id"]:
                     results[row["mangadex_id"]] = payload
-                if row["title_name"]:
-                    results[row["title_name"]] = payload
-                if row["english_name"]:
-                    results[row["english_name"]] = payload
-                if row["japanese_name"]:
-                    results[row["japanese_name"]] = payload
+                if row["mal_id"]:
+                    results[f"mal:{row['mal_id']}"] = payload
+
+        for i in range(0, len(mal_ids), chunk_size):
+            chunk = mal_ids[i : i + chunk_size]
+            placeholders = ",".join(["?"] * len(chunk))
+            query = f"""
+                SELECT mangadex_id, mal_id, genres, themes
+                FROM manga_merged
+                WHERE mal_id IN ({placeholders})
+            """
+            for row in conn.execute(query, chunk):
+                payload = {
+                    "genres": parse_list(row["genres"]),
+                    "themes": parse_list(row["themes"]),
+                }
+                if row["mangadex_id"]:
+                    results[row["mangadex_id"]] = payload
+                if row["mal_id"]:
+                    results[f"mal:{row['mal_id']}"] = payload
         return results
     finally:
         conn.close()
@@ -94,7 +120,7 @@ def recompute_affinities(user_id, db_path=None):
 
     ratings = db.execute(
         """
-        SELECT COALESCE(mdex_id, manga_id) AS manga_id,
+        SELECT COALESCE(canonical_id, mdex_id, manga_id) AS manga_id,
                rating,
                recommended_by_us,
                finished_reading
@@ -104,11 +130,11 @@ def recompute_affinities(user_id, db_path=None):
         (user_id,),
     ).fetchall()
     dnr_rows = db.execute(
-        "SELECT COALESCE(mdex_id, manga_id) AS manga_id FROM user_dnr WHERE lower(user_id) = lower(?)",
+        "SELECT COALESCE(canonical_id, mdex_id, manga_id) AS manga_id FROM user_dnr WHERE lower(user_id) = lower(?)",
         (user_id,),
     ).fetchall()
     reading_rows = db.execute(
-        "SELECT COALESCE(mdex_id, manga_id) AS manga_id, status FROM user_reading_list WHERE lower(user_id) = lower(?)",
+        "SELECT COALESCE(canonical_id, mdex_id, manga_id) AS manga_id, status FROM user_reading_list WHERE lower(user_id) = lower(?)",
         (user_id,),
     ).fetchall()
     clicked_rows = db.execute(

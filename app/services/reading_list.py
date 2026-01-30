@@ -1,4 +1,5 @@
 from app.repos import reading_list as reading_list_repo
+from app.repos import manga as manga_repo
 from app.repos import ratings as ratings_repo
 from app.repos import dnr as dnr_repo
 
@@ -15,10 +16,21 @@ def add_item(user_id, manga_id, status="Plan to Read"):
     user_id = _normalize(user_id)
     if not manga_id:
         return "manga_id is required"
-    reading_list_repo.add(user_id, manga_id, status)
+    resolved = manga_repo.resolve_manga_ref(manga_id)
+    canonical_id = resolved.get("canonical_id") or manga_id
+    mdex_id = resolved.get("mdex_id")
+    mal_id = resolved.get("mal_id")
+    reading_list_repo.add(
+        user_id,
+        canonical_id,
+        status,
+        canonical_id=canonical_id,
+        mdex_id=mdex_id,
+        mal_id=mal_id,
+    )
     # Keep the title exclusive to Reading List
-    ratings_repo.delete_rating(user_id, manga_id)
-    dnr_repo.remove(user_id, manga_id)
+    ratings_repo.delete_rating(user_id, canonical_id)
+    dnr_repo.remove(user_id, canonical_id, canonical_id=canonical_id, mdex_id=mdex_id)
     return None
 
 
@@ -26,7 +38,10 @@ def remove_item(user_id, manga_id):
     user_id = _normalize(user_id)
     if not manga_id:
         return "manga_id is required"
-    reading_list_repo.remove(user_id, manga_id)
+    resolved = manga_repo.resolve_manga_ref(manga_id)
+    canonical_id = resolved.get("canonical_id") or manga_id
+    mdex_id = resolved.get("mdex_id")
+    reading_list_repo.remove(user_id, canonical_id, canonical_id=canonical_id, mdex_id=mdex_id)
     return None
 
 
@@ -40,5 +55,9 @@ def update_status(user_id, manga_id, status):
     allowed = {"Plan to Read", "In Progress"}
     if status not in allowed:
         return "invalid status"
-    reading_list_repo.update_status(_normalize(user_id), manga_id, status)
+    resolved = manga_repo.resolve_manga_ref(manga_id)
+    canonical_id = resolved.get("canonical_id") or manga_id
+    mdex_id = resolved.get("mdex_id")
+    mal_id = resolved.get("mal_id")
+    reading_list_repo.update_status(_normalize(user_id), canonical_id, status, canonical_id=canonical_id, mdex_id=mdex_id, mal_id=mal_id)
     return None

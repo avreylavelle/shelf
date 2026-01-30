@@ -16,7 +16,9 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS user_ratings (
     user_id TEXT NOT NULL,
     manga_id TEXT NOT NULL,
+    canonical_id TEXT,
     mdex_id TEXT,
+    mal_id INTEGER,
     rating REAL,
     recommended_by_us INTEGER DEFAULT 0,
     finished_reading INTEGER DEFAULT 0,
@@ -28,7 +30,9 @@ CREATE TABLE IF NOT EXISTS user_ratings (
 CREATE TABLE IF NOT EXISTS user_dnr (
     user_id TEXT NOT NULL,
     manga_id TEXT NOT NULL,
+    canonical_id TEXT,
     mdex_id TEXT,
+    mal_id INTEGER,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, manga_id),
     FOREIGN KEY (user_id) REFERENCES users(username)
@@ -37,7 +41,9 @@ CREATE TABLE IF NOT EXISTS user_dnr (
 CREATE TABLE IF NOT EXISTS user_reading_list (
     user_id TEXT NOT NULL,
     manga_id TEXT NOT NULL,
+    canonical_id TEXT,
     mdex_id TEXT,
+    mal_id INTEGER,
     status TEXT DEFAULT 'Plan to Read',
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, manga_id),

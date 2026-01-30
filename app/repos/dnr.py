@@ -12,7 +12,8 @@ def list_by_user(user_id, sort="chron"):
         f"""
         SELECT d.user_id, d.manga_id, d.created_at, m.english_name, m.japanese_name, m.title_name, m.item_type, m.cover_url,
                COALESCE(d.mal_id, mm.mal_id, m.mal_id) AS mal_id,
-               COALESCE(mm.mangadex_id, d.mdex_id, m.mangadex_id) AS mdex_id
+               COALESCE(d.canonical_id, mm.mangadex_id, d.mdex_id, m.mangadex_id) AS mdex_id,
+               COALESCE(d.canonical_id, mm.mangadex_id, d.mdex_id, m.mangadex_id, d.manga_id) AS canonical_id
         FROM user_dnr d
         LEFT JOIN manga_map mm
             ON mm.mal_id = COALESCE(
@@ -35,24 +36,32 @@ def list_by_user(user_id, sort="chron"):
     return cur.fetchall()
 
 
-def add(user_id, manga_id):
+def add(user_id, manga_id, canonical_id=None, mdex_id=None, mal_id=None):
     db = get_db()
     db.execute(
-        "DELETE FROM user_dnr WHERE lower(user_id) = lower(?) AND (mdex_id = ? OR manga_id = ?)",
-        (user_id, manga_id, manga_id),
+        """
+        DELETE FROM user_dnr
+        WHERE lower(user_id) = lower(?)
+          AND (canonical_id = ? OR mdex_id = ? OR manga_id = ?)
+        """,
+        (user_id, canonical_id or manga_id, mdex_id or manga_id, manga_id),
     )
     db.execute(
-        "INSERT OR IGNORE INTO user_dnr (user_id, manga_id, mdex_id) VALUES (lower(?), ?, ?)",
-        (user_id, manga_id, manga_id),
+        "INSERT OR IGNORE INTO user_dnr (user_id, manga_id, mdex_id, mal_id, canonical_id) VALUES (lower(?), ?, ?, ?, ?)",
+        (user_id, canonical_id or manga_id, mdex_id, mal_id, canonical_id),
     )
     db.commit()
 
 
-def remove(user_id, manga_id):
+def remove(user_id, manga_id, canonical_id=None, mdex_id=None):
     db = get_db()
     db.execute(
-        "DELETE FROM user_dnr WHERE lower(user_id) = lower(?) AND (mdex_id = ? OR manga_id = ?)",
-        (user_id, manga_id, manga_id),
+        """
+        DELETE FROM user_dnr
+        WHERE lower(user_id) = lower(?)
+          AND (canonical_id = ? OR mdex_id = ? OR manga_id = ?)
+        """,
+        (user_id, canonical_id or manga_id, mdex_id or manga_id, manga_id),
     )
     db.commit()
 
@@ -61,7 +70,7 @@ def list_manga_ids_by_user(user_id):
     db = get_db()
     cur = db.execute(
         """
-        SELECT COALESCE(mm.mangadex_id, d.mdex_id, d.manga_id) AS key
+        SELECT COALESCE(d.canonical_id, mm.mangadex_id, d.mdex_id, d.manga_id) AS key
         FROM user_dnr d
         LEFT JOIN manga_map mm
             ON mm.mal_id = COALESCE(
