@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Recommendations · Lav Labs Manga</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130e" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130f" />
   </head>
   <body>
     <main class="page">
@@ -87,7 +87,6 @@
 
         <div class="row">
           <button id="recommend-btn" type="button">Get Recommendations</button>
-          <button id="reroll-btn" class="ghost" type="button">Reroll</button>
           <button id="options-btn" class="ghost" type="button">Options</button>
           <button id="info-btn" class="ghost info-btn" type="button" aria-label="How recommendations work">i</button>
           <div id="recs-loading" class="loading" aria-live="polite" aria-busy="false">Loading recommendations…</div>
@@ -102,7 +101,7 @@
     <script>
       window.BASE_PATH = "{{ base_path }}";
     </script>
-    <script src="{{ url_for('static', filename='common.js') }}?v=20260130e"></script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260130f"></script>
 
     <dialog id="rate-modal" class="modal">
       <h3 id="rate-modal-title">Rate</h3>
@@ -149,7 +148,6 @@
         <div><strong>Include less popular</strong>: Adds a small boost for lower‑popularity titles.</div>
         <div><strong>Personalized</strong>: Uses your ratings, clicks, and lists to bias results (requires enough history).</div>
         <div><strong>Earliest year</strong>: Bias toward newer titles (older titles get a small penalty).</div>
-        <div><strong>Reroll</strong>: Keeps filters the same and reshuffles from the current pool.</div>
       </div>
       <div class="modal-actions">
         <button id="info-close" class="ghost" type="button">Close</button>
@@ -192,6 +190,6 @@
       </div>
     </dialog>
 
-    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260130e"></script>
+    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260130f"></script>
   </body>
 </html>

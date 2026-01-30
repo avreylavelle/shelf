@@ -1,6 +1,5 @@
 const recommendationsEl = document.getElementById("recommendations");
 const recommendBtn = document.getElementById("recommend-btn");
-const rerollBtn = document.getElementById("reroll-btn");
 const optionsBtn = document.getElementById("options-btn");
 const diversifyToggle = document.getElementById("diversify-toggle");
 const noveltyToggle = document.getElementById("novelty-toggle");
@@ -248,7 +247,7 @@ async function loadRatingsMap() {
   state.ratingsMap = data.items || {};
 }
 
-async function fetchRecommendationsWithPrefs(reroll = false) {
+async function fetchRecommendationsWithPrefs() {
   // ONLY fetch on button click (no auto-recs on load)
   setLoading(true);
   try {
@@ -259,7 +258,6 @@ async function fetchRecommendationsWithPrefs(reroll = false) {
         themes: state.themes,
         blacklist_genres: state.blacklistGenres,
         blacklist_themes: state.blacklistThemes,
-        reroll,
         diversify: diversifyToggle ? diversifyToggle.checked : true,
         novelty: noveltyToggle ? noveltyToggle.checked : false,
         personalize: personalizeToggle ? personalizeToggle.checked : true,
@@ -374,17 +372,6 @@ if (optionsModal) {
     if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) {
       optionsModal.close();
     }
-  });
-}
-
-if (rerollBtn) {
-  rerollBtn.addEventListener("click", (event) => {
-    event.preventDefault();
-    api("/api/events", {
-      method: "POST",
-      body: JSON.stringify({ event_type: "reroll" }),
-    }).catch(() => {});
-    fetchRecommendationsWithPrefs(true);
   });
 }
 

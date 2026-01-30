@@ -661,7 +661,7 @@ def record_event():
     manga_id = (data.get("manga_id") or "").strip()
     value = data.get("value")
 
-    allowed = {"clicked", "details", "reroll"}
+    allowed = {"clicked", "details"}
     if event_type not in allowed:
         return jsonify({"error": "invalid event_type"}), 400
 
@@ -750,7 +750,6 @@ def recommendations_with_prefs():
     blacklist_genres = _parse_list(data.get("blacklist_genres"))
     blacklist_themes = _parse_list(data.get("blacklist_themes"))
     mode = (data.get("mode") or "").strip() or None
-    reroll = _parse_bool(data.get("reroll"))
     diversify = _parse_bool(data.get("diversify"), True)
     novelty = _parse_bool(data.get("novelty"), False)
     personalize = _parse_bool(data.get("personalize"), True)
@@ -762,14 +761,13 @@ def recommendations_with_prefs():
     content_types = _parse_list(data.get("content_types"))
 
     # Keep history in sync (rolling request window)
-    if not reroll:
-        profile_service.record_request_history(
-            user_id,
-            current_genres,
-            current_themes,
-            blacklist_genres,
-            blacklist_themes,
-        )
+    profile_service.record_request_history(
+        user_id,
+        current_genres,
+        current_themes,
+        blacklist_genres,
+        blacklist_themes,
+    )
 
     profile = profile_service.get_profile(user_id)
     language = (profile or {}).get("language") or "English"
@@ -781,7 +779,6 @@ def recommendations_with_prefs():
         current_themes,
         limit=20,
         mode=mode,
-        reroll=reroll,
         diversify=diversify,
         novelty=novelty,
         personalize=personalize,
