@@ -153,7 +153,7 @@ function filterRatingItems(items) {
 
 function renderRatings() {
   const filtered = filterRatingItems(state.items);
-  const items = filtered;
+  const items = collapseByMalId(filtered);
 
   if (!items.length) {
     ratingsEl.innerHTML = "<p class='muted'>No ratings yet.</p>";

@@ -101,6 +101,41 @@ function parseJsonField(value) {
   return null;
 }
 
+function seriesKey(title) {
+  if (!title) return "";
+  let text = String(title).toLowerCase();
+  text = text.replace(/\(.*?\)/g, "");
+  text = text.split(/[:\-–—]/)[0];
+  text = text.replace(/[^a-z0-9]+/g, " ").trim();
+  return text;
+}
+
+function collapseByMalId(items) {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set();
+  const result = [];
+  for (const item of items) {
+    const malId = item && item.mal_id !== undefined && item.mal_id !== null ? String(item.mal_id) : "";
+    let key = "";
+    if (malId && malId !== "0" && malId !== "nan") {
+      key = `mal:${malId}`;
+    } else {
+      const title =
+        item?.display_title || item?.title || item?.english_name || item?.japanese_name || item?.manga_id || item?.id || "";
+      const base = seriesKey(title);
+      key = base ? `title:${base}` : "";
+    }
+    if (!key) {
+      result.push(item);
+      continue;
+    }
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(item);
+  }
+  return result;
+}
+
 function formatLanguage(code) {
   if (!code) return "";
   const map = {

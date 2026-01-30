@@ -268,7 +268,8 @@ async function fetchRecommendationsWithPrefs(reroll = false) {
       }),
     });
     await loadRatingsMap();
-    renderRecommendations(data.items || []);
+    const items = collapseByMalId(data.items || []);
+    renderRecommendations(items);
   } catch (err) {
     recommendationsEl.innerHTML = `<p class='muted'>${err.message}</p>`;
   } finally {

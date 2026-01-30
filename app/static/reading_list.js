@@ -132,7 +132,8 @@ function renderReadingList(items) {
     readingList.innerHTML = "<p class='muted'>No reading list titles yet.</p>";
     return;
   }
-  readingList.innerHTML = items
+  const collapsed = collapseByMalId(items);
+  readingList.innerHTML = collapsed
     .map(
       (item) => {
         const mangaId = item.mdex_id || item.manga_id;

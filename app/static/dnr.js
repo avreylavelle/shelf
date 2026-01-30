@@ -95,7 +95,7 @@ function renderDnr(items) {
     dnrList.innerHTML = "<p class='muted'>No DNR titles yet.</p>";
     return;
   }
-  const filtered = filterDnrItems(items);
+  const filtered = collapseByMalId(filterDnrItems(items));
   dnrList.innerHTML = filtered
     .map(
       (item) => {
