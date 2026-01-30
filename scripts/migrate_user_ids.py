@@ -357,11 +357,187 @@ def report_unmatched(conn, table):
     return cur.fetchone()[0]
 
 
+def _canonical_key(row):
+    return row["canonical_id"] or row["mdex_id"] or row["manga_id"]
+
+
+def _derive_mal_id(conn, canonical_id, mdex_id, mal_id):
+    if mal_id:
+        return mal_id
+    candidate = canonical_id or mdex_id
+    if not candidate:
+        return None
+    text = str(candidate)
+    if text.lower().startswith("mal:"):
+        try:
+            return int(text.split(":", 1)[-1].strip())
+        except (TypeError, ValueError):
+            return None
+    if UUID_RE.match(text):
+        row = conn.execute("SELECT mal_id FROM manga_map WHERE mangadex_id = ?", (text,)).fetchone()
+        if row:
+            return row[0]
+    return None
+
+
+def dedupe_ratings(conn):
+    rows = conn.execute(
+        """
+        SELECT rowid, user_id, manga_id, canonical_id, mdex_id, mal_id,
+               rating, recommended_by_us, finished_reading, created_at
+        FROM user_ratings
+        """
+    ).fetchall()
+    groups = {}
+    for row in rows:
+        key = (row["user_id"], _canonical_key(row))
+        if not key[1]:
+            continue
+        groups.setdefault(key, []).append(row)
+
+    deleted = 0
+    for (_, canonical_id), items in groups.items():
+        if len(items) <= 1:
+            continue
+
+        def sort_key(r):
+            rating_present = 1 if r["rating"] is not None else 0
+            created = r["created_at"] or ""
+            return (rating_present, created, r["finished_reading"] or 0, r["recommended_by_us"] or 0, r["rowid"])
+
+        keep = max(items, key=sort_key)
+        rating = keep["rating"]
+        recommended_by_us = max((r["recommended_by_us"] or 0) for r in items)
+        finished_reading = max((r["finished_reading"] or 0) for r in items)
+        mdex_id = next((r["mdex_id"] for r in items if r["mdex_id"]), None)
+        if not mdex_id and canonical_id and UUID_RE.match(str(canonical_id)):
+            mdex_id = canonical_id
+        mal_id = _derive_mal_id(conn, canonical_id, mdex_id, keep["mal_id"])
+
+        for r in items:
+            if r["rowid"] == keep["rowid"]:
+                continue
+            conn.execute("DELETE FROM user_ratings WHERE rowid = ?", (r["rowid"],))
+            deleted += 1
+
+        conn.execute(
+            """
+            UPDATE user_ratings
+            SET manga_id = ?, canonical_id = ?, mdex_id = ?, mal_id = ?,
+                rating = ?, recommended_by_us = ?, finished_reading = ?
+            WHERE rowid = ?
+            """,
+            (
+                canonical_id,
+                canonical_id,
+                mdex_id,
+                mal_id,
+                rating,
+                recommended_by_us,
+                finished_reading,
+                keep["rowid"],
+            ),
+        )
+    return deleted
+
+
+def dedupe_dnr(conn):
+    rows = conn.execute(
+        """
+        SELECT rowid, user_id, manga_id, canonical_id, mdex_id, mal_id, created_at
+        FROM user_dnr
+        """
+    ).fetchall()
+    groups = {}
+    for row in rows:
+        key = (row["user_id"], _canonical_key(row))
+        if not key[1]:
+            continue
+        groups.setdefault(key, []).append(row)
+
+    deleted = 0
+    for (_, canonical_id), items in groups.items():
+        if len(items) <= 1:
+            continue
+        keep = max(items, key=lambda r: (r["created_at"] or "", r["rowid"]))
+        mdex_id = next((r["mdex_id"] for r in items if r["mdex_id"]), None)
+        if not mdex_id and canonical_id and UUID_RE.match(str(canonical_id)):
+            mdex_id = canonical_id
+        mal_id = _derive_mal_id(conn, canonical_id, mdex_id, keep["mal_id"])
+
+        for r in items:
+            if r["rowid"] == keep["rowid"]:
+                continue
+            conn.execute("DELETE FROM user_dnr WHERE rowid = ?", (r["rowid"],))
+            deleted += 1
+
+        conn.execute(
+            """
+            UPDATE user_dnr
+            SET manga_id = ?, canonical_id = ?, mdex_id = ?, mal_id = ?
+            WHERE rowid = ?
+            """,
+            (canonical_id, canonical_id, mdex_id, mal_id, keep["rowid"]),
+        )
+    return deleted
+
+
+def dedupe_reading_list(conn):
+    rows = conn.execute(
+        """
+        SELECT rowid, user_id, manga_id, canonical_id, mdex_id, mal_id, status, created_at
+        FROM user_reading_list
+        """
+    ).fetchall()
+    groups = {}
+    for row in rows:
+        key = (row["user_id"], _canonical_key(row))
+        if not key[1]:
+            continue
+        groups.setdefault(key, []).append(row)
+
+    deleted = 0
+    for (_, canonical_id), items in groups.items():
+        if len(items) <= 1:
+            continue
+        keep = max(items, key=lambda r: (r["created_at"] or "", r["rowid"]))
+        status_final = "Plan to Read"
+        for r in items:
+            status = (r["status"] or "").strip().lower()
+            if status == "in progress":
+                status_final = "In Progress"
+                break
+            if status == "plan to read":
+                status_final = "Plan to Read"
+
+        mdex_id = next((r["mdex_id"] for r in items if r["mdex_id"]), None)
+        if not mdex_id and canonical_id and UUID_RE.match(str(canonical_id)):
+            mdex_id = canonical_id
+        mal_id = _derive_mal_id(conn, canonical_id, mdex_id, keep["mal_id"])
+
+        for r in items:
+            if r["rowid"] == keep["rowid"]:
+                continue
+            conn.execute("DELETE FROM user_reading_list WHERE rowid = ?", (r["rowid"],))
+            deleted += 1
+
+        conn.execute(
+            """
+            UPDATE user_reading_list
+            SET manga_id = ?, canonical_id = ?, mdex_id = ?, mal_id = ?, status = ?
+            WHERE rowid = ?
+            """,
+            (canonical_id, canonical_id, mdex_id, mal_id, status_final, keep["rowid"]),
+        )
+    return deleted
+
+
 def main():
     if not Path(DB_PATH).exists():
         raise SystemExit(f"DB not found: {DB_PATH}")
 
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     try:
         ensure_columns(conn, "user_ratings")
         ensure_columns(conn, "user_dnr")
@@ -384,9 +560,17 @@ def main():
             repair_mal_ids(conn, table)
         conn.commit()
 
+        deleted_ratings = dedupe_ratings(conn)
+        deleted_dnr = dedupe_dnr(conn)
+        deleted_reading = dedupe_reading_list(conn)
+        conn.commit()
+
         for table in ("user_ratings", "user_dnr", "user_reading_list"):
             missing = report_unmatched(conn, table)
             print(f"{table}: {missing} rows missing mal_id or mdex_id")
+        print(f"dedupe user_ratings: removed {deleted_ratings} rows")
+        print(f"dedupe user_dnr: removed {deleted_dnr} rows")
+        print(f"dedupe user_reading_list: removed {deleted_reading} rows")
     finally:
         conn.close()
 
