@@ -272,6 +272,37 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
     read_manga = ratings_repo.list_ratings_map(user_id)
     manga_df = _load_manga_df(db_path)
 
+    rated_mal_ids = set()
+    if read_manga:
+        # Resolve rated MAL ids to block alternate variants from showing up
+        id_to_mal = {}
+        try:
+            id_to_mal = dict(zip(manga_df["id"], manga_df["mal_id"]))
+        except Exception:
+            id_to_mal = {}
+        for key in read_manga.keys():
+            if not key:
+                continue
+            if str(key).startswith("mal:"):
+                try:
+                    rated_mal_ids.add(int(str(key).replace("mal:", "").strip()))
+                except Exception:
+                    pass
+                continue
+            mal_id = id_to_mal.get(key)
+            if mal_id and mal_id == mal_id:
+                try:
+                    rated_mal_ids.add(int(mal_id))
+                except Exception:
+                    pass
+        if rated_mal_ids:
+            try:
+                related_ids = manga_df[manga_df["mal_id"].isin(rated_mal_ids)]["id"].dropna().tolist()
+                for rid in related_ids:
+                    read_manga.setdefault(rid, None)
+            except Exception:
+                pass
+
     dnr_ids = set(dnr_service.list_manga_ids(user_id))
     reading_ids = set(reading_list_service.list_manga_ids(user_id))
     exclude_ids = dnr_ids | reading_ids
@@ -312,6 +343,8 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
                 "title": row.get("title_name"),
                 "english_name": row.get("english_name"),
                 "japanese_name": row.get("japanese_name"),
+                "synonymns": row.get("synonymns"),
+                "mal_id": row.get("mal_id"),
                 "cover_url": row.get("cover_url"),
                 "score": row.get("score"),
                 "genres": row.get("genres"),

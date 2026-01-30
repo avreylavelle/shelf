@@ -11,18 +11,19 @@ def search_by_title(query, limit=10):
                title_name,
                english_name,
                japanese_name,
+               synonymns,
                cover_url,
                score,
                genres,
                themes,
                item_type
         FROM manga_merged
-        WHERE (title_name LIKE ? OR english_name LIKE ? OR japanese_name LIKE ?)
+        WHERE (title_name LIKE ? OR english_name LIKE ? OR japanese_name LIKE ? OR synonymns LIKE ?)
           AND mangadex_id NOT LIKE 'mal:%'
         ORDER BY score IS NULL, score DESC
         LIMIT ?
         """,
-        (like, like, like, limit),
+        (like, like, like, like, limit),
     )
     return cur.fetchall()
 

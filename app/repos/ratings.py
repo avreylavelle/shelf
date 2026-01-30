@@ -17,11 +17,21 @@ def list_by_user(user_id, sort="chron"):
     cur = db.execute(
         f"""
         SELECT r.user_id, r.manga_id, r.rating, r.recommended_by_us, r.finished_reading, r.created_at,
-               m.title_name, m.english_name, m.japanese_name, m.item_type, m.cover_url, m.mal_id,
-               COALESCE(r.mdex_id, m.mangadex_id) AS mdex_id
+               m.title_name, m.english_name, m.japanese_name, m.item_type, m.cover_url,
+               COALESCE(r.mal_id, mm.mal_id, m.mal_id) AS mal_id,
+               COALESCE(mm.mangadex_id, r.mdex_id, m.mangadex_id) AS mdex_id
         FROM user_ratings r
+        LEFT JOIN manga_map mm
+            ON mm.mal_id = COALESCE(
+                r.mal_id,
+                CASE WHEN r.mdex_id LIKE 'mal:%' THEN CAST(SUBSTR(r.mdex_id, 5) AS INTEGER) END
+            )
         LEFT JOIN manga_merged m
-            ON m.mangadex_id = r.mdex_id
+            ON m.mangadex_id = COALESCE(
+                CASE WHEN r.mdex_id LIKE 'mal:%' THEN mm.mangadex_id END,
+                r.mdex_id,
+                r.manga_id
+            )
             OR (r.mdex_id IS NULL AND m.mangadex_id = r.manga_id)
             OR (r.mdex_id IS NULL AND m.title_name = r.manga_id)
         WHERE lower(r.user_id) = lower(?)
@@ -36,10 +46,19 @@ def list_ratings_map(user_id):
     db = get_db()
     cur = db.execute(
         """
-        SELECT COALESCE(r.mdex_id, m.mangadex_id, r.manga_id) AS key, r.rating
+        SELECT COALESCE(mm.mangadex_id, r.mdex_id, m.mangadex_id, r.manga_id) AS key, r.rating
         FROM user_ratings r
+        LEFT JOIN manga_map mm
+            ON mm.mal_id = COALESCE(
+                r.mal_id,
+                CASE WHEN r.mdex_id LIKE 'mal:%' THEN CAST(SUBSTR(r.mdex_id, 5) AS INTEGER) END
+            )
         LEFT JOIN manga_merged m
-            ON m.mangadex_id = r.mdex_id
+            ON m.mangadex_id = COALESCE(
+                CASE WHEN r.mdex_id LIKE 'mal:%' THEN mm.mangadex_id END,
+                r.mdex_id,
+                r.manga_id
+            )
             OR (r.mdex_id IS NULL AND m.mangadex_id = r.manga_id)
             OR (r.mdex_id IS NULL AND m.title_name = r.manga_id)
         WHERE lower(r.user_id) = lower(?)

@@ -9,6 +9,7 @@ const typesAll = document.getElementById("dnr-types-all");
 const typesNone = document.getElementById("dnr-types-none");
 const typeOptions = Array.from(document.querySelectorAll("#dnr-types-modal .type-option"));
 
+const LEGACY_DEFAULT_TYPES = new Set(["Manga", "Manhwa", "Manhua"]);
 
 async function loadUiPrefs() {
   try {
@@ -25,6 +26,7 @@ async function loadUiPrefs() {
         typeOptions.forEach((opt) => {
           opt.checked = desired.has(opt.value);
         });
+        applyLegacyDefaultTypes(desired);
       } else {
         setDefaultTypes();
       }
@@ -57,6 +59,18 @@ function setDefaultTypes() {
   typeOptions.forEach((opt) => {
     opt.checked = true;
   });
+}
+
+function applyLegacyDefaultTypes(desired) {
+  if (!desired || !typeOptions.length) return false;
+  if (desired.size !== LEGACY_DEFAULT_TYPES.size) return false;
+  for (const value of LEGACY_DEFAULT_TYPES) {
+    if (!desired.has(value)) return false;
+  }
+  typeOptions.forEach((opt) => {
+    opt.checked = true;
+  });
+  return true;
 }
 
 function selectedTypeSet() {

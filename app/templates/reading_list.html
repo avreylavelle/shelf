@@ -56,7 +56,7 @@
     <script>
       window.BASE_PATH = "{{ base_path }}";
     </script>
-    <script src="{{ url_for('static', filename='common.js') }}?v=20260128u"></script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260131c"></script>
 
     <dialog id="reading-types-modal" class="modal">
       <h3>Content types</h3>
@@ -69,6 +69,8 @@
           <label class="inline"><input type="checkbox" class="type-option" value="Manga" /> Manga</label>
           <label class="inline"><input type="checkbox" class="type-option" value="Manhwa" /> Manhwa</label>
           <label class="inline"><input type="checkbox" class="type-option" value="Manhua" /> Manhua</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Light Novel" /> Light Novel</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Novel" /> Novel</label>
         </div>
       </div>
       <div class="modal-actions">
@@ -100,6 +102,6 @@
         <button id="rate-modal-add" type="button">Add</button>
       </div>
     </dialog>
-    <script src="{{ url_for('static', filename='reading_list.js') }}?v=20260130a"></script>
+    <script src="{{ url_for('static', filename='reading_list.js') }}?v=20260130c"></script>
   </body>
 </html>

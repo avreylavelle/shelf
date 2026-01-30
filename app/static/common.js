@@ -121,32 +121,44 @@ function formatDate(value) {
 }
 
 function renderChips(items) {
-  const cleaned = (items || []).filter(Boolean);
+  let cleaned = items;
+  if (!Array.isArray(cleaned)) {
+    cleaned = parseListField(cleaned);
+  }
+  if (!Array.isArray(cleaned)) {
+    cleaned = [];
+  }
+  cleaned = cleaned.filter(Boolean);
   if (!cleaned.length) return "<span class='muted'>n/a</span>";
-  return `<div class="details-chips">${cleaned.map((val) => `<span class="badge">${escapeHtml(val)}</span>`).join("")}</div>`;
+  let html = "";
+  for (const val of cleaned) {
+    html += `<span class="badge">${escapeHtml(val)}</span>`;
+  }
+  return `<div class="details-chips">${html}</div>`;
 }
 
 function renderDetailsHTML(item) {
-  if (!item) return "<div class='details-box'><div class='muted'>No details available.</div></div>";
-  const links = parseJsonField(item.links) || {};
-  const external = [];
-  if (item.link) {
-    external.push({ label: "MangaDex", url: item.link });
-  }
-  if (links.al) {
-    external.push({ label: "AniList", url: `https://anilist.co/manga/${links.al}` });
-  }
-  if (links.kitsu) {
-    external.push({ label: "Kitsu", url: `https://kitsu.io/manga/${links.kitsu}` });
-  }
-  if (links.mu) {
-    external.push({ label: "MangaUpdates", url: `https://www.mangaupdates.com/series/${links.mu}` });
-  }
-  if (links.mal) {
-    external.push({ label: "MyAnimeList", url: `https://myanimelist.net/manga/${links.mal}` });
-  }
+  try {
+    if (!item) return "<div class='details-box'><div class='muted'>No details available.</div></div>";
+    const links = parseJsonField(item.links) || {};
+    const external = [];
+    if (item.link) {
+      external.push({ label: "MangaDex", url: item.link });
+    }
+    if (links.al) {
+      external.push({ label: "AniList", url: `https://anilist.co/manga/${links.al}` });
+    }
+    if (links.kitsu) {
+      external.push({ label: "Kitsu", url: `https://kitsu.io/manga/${links.kitsu}` });
+    }
+    if (links.mu) {
+      external.push({ label: "MangaUpdates", url: `https://www.mangaupdates.com/series/${links.mu}` });
+    }
+    if (links.mal) {
+      external.push({ label: "MyAnimeList", url: `https://myanimelist.net/manga/${links.mal}` });
+    }
 
-  const rows = [
+  const rowsData = [
     ["Type", item.item_type],
     ["Status", item.status],
     ["Publishing", item.publishing_date],
@@ -156,29 +168,32 @@ function renderDetailsHTML(item) {
     ["Content rating", item.content_rating],
     ["Original language", formatLanguage(item.original_language)],
     ["Updated", formatDate(item.updated_at)],
-  ]
-    .filter((entry) => entry[1] !== undefined && entry[1] !== null && entry[1] !== "")
-    .map(
-      ([label, value]) => `
+  ];
+  let rows = "";
+  for (const [label, value] of rowsData) {
+    if (value === undefined || value === null || value === "") continue;
+    rows += `
         <div class="details-row">
           <div class="details-label">${escapeHtml(label)}</div>
           <div class="details-value">${escapeHtml(value)}</div>
         </div>
-      `
-    )
-    .join("");
+      `;
+  }
 
   const description = item.description ? escapeHtml(item.description) : "";
   const cover = item.cover_url
     ? `<img class="details-cover" src="${escapeHtml(item.cover_url)}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
     : "";
-  const linkHtml = external.length
-    ? `<div class="details-links">${external
-        .map((link) => `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>`)
-        .join("")}</div>`
-    : "";
+  let linkHtml = "";
+  if (external.length) {
+    let linksOut = "";
+    for (const link of external) {
+      linksOut += `<a href="${escapeHtml(link.url)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>`;
+    }
+    linkHtml = `<div class="details-links">${linksOut}</div>`;
+  }
 
-  return `
+    return `
     <div class="details-box">
       <div class="details-header">
         ${cover}
@@ -212,6 +227,10 @@ function renderDetailsHTML(item) {
       </div>
     </div>
   `;
+  } catch (err) {
+    const message = err?.message || "Failed to render details.";
+    return `<div class='details-box'><div class='muted'>${escapeHtml(message)}</div></div>`;
+  }
 }
 
 window.renderDetailsHTML = renderDetailsHTML;

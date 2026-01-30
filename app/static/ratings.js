@@ -1,7 +1,6 @@
 const ratingsEl = document.getElementById("ratings");
 const ratingsSort = document.getElementById("ratings-sort");
 const ratingsFilter = document.getElementById("ratings-filter");
-const toggleRatings = document.getElementById("toggle-ratings");
 const loadingEl = document.getElementById("ratings-loading");
 const typesButtons = Array.from(document.querySelectorAll(".ratings-types-open"));
 const typesModal = document.getElementById("ratings-types-modal");
@@ -19,9 +18,10 @@ const rateModalAdd = document.getElementById("rate-modal-add");
 const rateModalReading = document.getElementById("rate-modal-reading");
 const rateModalClose = document.getElementById("rate-modal-close");
 
+const LEGACY_DEFAULT_TYPES = new Set(["Manga", "Manhwa", "Manhua"]);
 
 const state = {
-  expanded: false,
+  expanded: true,
   sort: "chron",
   items: [],
 };
@@ -67,6 +67,18 @@ function setDefaultTypes() {
   });
 }
 
+function applyLegacyDefaultTypes(desired) {
+  if (!desired || !typeOptions.length) return false;
+  if (desired.size !== LEGACY_DEFAULT_TYPES.size) return false;
+  for (const value of LEGACY_DEFAULT_TYPES) {
+    if (!desired.has(value)) return false;
+  }
+  typeOptions.forEach((opt) => {
+    opt.checked = true;
+  });
+  return true;
+}
+
 function openRateModal(mangaId, displayTitle, rating = "", recommended = false, finished = false) {
   if (!rateModal) return;
   rateModal.dataset.id = mangaId;
@@ -101,6 +113,7 @@ async function loadUiPrefs() {
         typeOptions.forEach((opt) => {
           opt.checked = desired.has(opt.value);
         });
+        applyLegacyDefaultTypes(desired);
       } else {
         setDefaultTypes();
       }
@@ -140,8 +153,7 @@ function filterRatingItems(items) {
 
 function renderRatings() {
   const filtered = filterRatingItems(state.items);
-  const limit = state.expanded ? filtered.length : 10;
-  const items = filtered.slice(0, limit);
+  const items = filtered;
 
   if (!items.length) {
     ratingsEl.innerHTML = "<p class='muted'>No ratings yet.</p>";
@@ -170,7 +182,6 @@ function renderRatings() {
     })
     .join("");
 
-  toggleRatings.textContent = state.expanded ? "Show Less" : "Show All";
 }
 
 async function handleDetails(mangaId, title) {
@@ -211,11 +222,6 @@ ratingsSort.addEventListener("change", () => {
   state.sort = ratingsSort.value;
   saveUiPref("ratings_sort", state.sort);
   loadRatings();
-});
-
-toggleRatings.addEventListener("click", () => {
-  state.expanded = !state.expanded;
-  renderRatings();
 });
 
 ratingsEl.addEventListener("click", (event) => {

@@ -173,7 +173,7 @@ function renderRecommendations(items) {
       const mangaId = item.id || item.title;
       const currentRating = state.ratingsMap[mangaId];
       const ratingText = currentRating == null ? "" : `Your rating: ${currentRating}`;
-      const displayTitle = item.display_title || item.title;
+      const displayTitle = item.display_title || item.english_name || item.title;
       const cover = item.cover_url
         ? `<img class="result-cover" src="${item.cover_url}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
         : `<div class="result-cover placeholder"></div>`;
@@ -201,9 +201,10 @@ function selectedTypes() {
 }
 
 
-function renderChips(container, items, type) {
+function renderSelectionChips(container, items, type) {
   if (!container) return;
-  container.innerHTML = items
+  const safeItems = Array.isArray(items) ? items : [];
+  container.innerHTML = safeItems
     .map(
       (item) => `
         <button class="chip" data-type="${type}" data-value="${item}" type="button">
@@ -218,28 +219,28 @@ function addGenre() {
   const value = genreSelect.value;
   if (!value || state.genres.includes(value)) return;
   state.genres.push(value);
-  renderChips(selectedGenresEl, state.genres, "genre");
+  renderSelectionChips(selectedGenresEl, state.genres, "genre");
 }
 
 function addTheme() {
   const value = themeSelect.value;
   if (!value || state.themes.includes(value)) return;
   state.themes.push(value);
-  renderChips(selectedThemesEl, state.themes, "theme");
+  renderSelectionChips(selectedThemesEl, state.themes, "theme");
 }
 
 function addBlacklistGenre() {
   const value = blacklistGenreSelect ? blacklistGenreSelect.value : "";
   if (!value || state.blacklistGenres.includes(value)) return;
   state.blacklistGenres.push(value);
-  renderChips(blacklistGenresEl, state.blacklistGenres, "blacklist-genre");
+  renderSelectionChips(blacklistGenresEl, state.blacklistGenres, "blacklist-genre");
 }
 
 function addBlacklistTheme() {
   const value = blacklistThemeSelect ? blacklistThemeSelect.value : "";
   if (!value || state.blacklistThemes.includes(value)) return;
   state.blacklistThemes.push(value);
-  renderChips(blacklistThemesEl, state.blacklistThemes, "blacklist-theme");
+  renderSelectionChips(blacklistThemesEl, state.blacklistThemes, "blacklist-theme");
 }
 
 async function loadRatingsMap() {
@@ -280,10 +281,18 @@ async function handleDetails(mangaId, title) {
     method: "POST",
     body: JSON.stringify({ event_type: "clicked", manga_id: mangaId }),
   }).catch(() => {});
-  const data = await api(`/api/manga/details?id=${encodeURIComponent(mangaId)}`);
-  const item = data.item || {};
-  if (window.openDetailsModal && window.renderDetailsHTML) {
-    window.openDetailsModal(window.renderDetailsHTML(item), title || item.display_title || item.title);
+  try {
+    const data = await api(`/api/manga/details?id=${encodeURIComponent(mangaId)}`);
+    const item = data.item || {};
+    if (window.openDetailsModal && window.renderDetailsHTML) {
+      window.openDetailsModal(window.renderDetailsHTML(item), title || item.display_title || item.title);
+    }
+  } catch (err) {
+    const message = err?.message || "Details failed";
+    showToast(message);
+    if (window.openDetailsModal) {
+      window.openDetailsModal(`<div class='muted'>${message}</div>`, title || mangaId || "Details");
+    }
   }
 }
 
@@ -388,7 +397,7 @@ selectedGenresEl.addEventListener("click", (event) => {
   if (!target) return;
   const value = target.dataset.value;
   state.genres = state.genres.filter((item) => item !== value);
-  renderChips(selectedGenresEl, state.genres, "genre");
+  renderSelectionChips(selectedGenresEl, state.genres, "genre");
 });
 
 selectedThemesEl.addEventListener("click", (event) => {
@@ -396,7 +405,7 @@ selectedThemesEl.addEventListener("click", (event) => {
   if (!target) return;
   const value = target.dataset.value;
   state.themes = state.themes.filter((item) => item !== value);
-  renderChips(selectedThemesEl, state.themes, "theme");
+  renderSelectionChips(selectedThemesEl, state.themes, "theme");
 });
 if (blacklistGenresEl) {
   blacklistGenresEl.addEventListener("click", (event) => {
@@ -404,7 +413,7 @@ if (blacklistGenresEl) {
     if (!target) return;
     const value = target.dataset.value;
     state.blacklistGenres = state.blacklistGenres.filter((item) => item !== value);
-    renderChips(blacklistGenresEl, state.blacklistGenres, "blacklist-genre");
+    renderSelectionChips(blacklistGenresEl, state.blacklistGenres, "blacklist-genre");
   });
 }
 if (blacklistThemesEl) {
@@ -413,7 +422,7 @@ if (blacklistThemesEl) {
     if (!target) return;
     const value = target.dataset.value;
     state.blacklistThemes = state.blacklistThemes.filter((item) => item !== value);
-    renderChips(blacklistThemesEl, state.blacklistThemes, "blacklist-theme");
+    renderSelectionChips(blacklistThemesEl, state.blacklistThemes, "blacklist-theme");
   });
 }
 
@@ -536,15 +545,18 @@ if (infoModal) {
 }
 
 recommendationsEl.addEventListener("click", (event) => {
-  if (event.target.classList.contains("details-btn")) {
-    const mangaId = event.target.dataset.id;
-    const title = event.target.closest(".result-card")?.dataset?.display || mangaId;
+  const detailsBtn = event.target.closest(".details-btn");
+  if (detailsBtn) {
+    const mangaId = detailsBtn.dataset.id;
+    const title = detailsBtn.closest(".result-card")?.dataset?.display || mangaId;
     handleDetails(mangaId, title).catch(() => {});
+    return;
   }
 
-  if (event.target.classList.contains("add-open")) {
-    const mangaId = event.target.dataset.id;
-    const displayTitle = event.target.dataset.display;
+  const addBtn = event.target.closest(".add-open");
+  if (addBtn) {
+    const mangaId = addBtn.dataset.id;
+    const displayTitle = addBtn.dataset.display;
     openAddModal(mangaId, displayTitle);
   }
 });

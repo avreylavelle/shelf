@@ -115,15 +115,23 @@ def _stats_english_name(mal_id):
 
 
 def _display_title(row, language):
-    title = _get_value(row, "title_name") or _get_value(row, "manga_id")
+    title = (
+        _get_value(row, "title_name")
+        or _get_value(row, "title")
+        or _get_value(row, "manga_id")
+        or _get_value(row, "id")
+    )
     if language == "Japanese":
         return _get_value(row, "japanese_name") or title
     english = _get_value(row, "english_name")
-    if english and _normalize_text(english) != _normalize_text(title):
+    # Preserve variant-specific English names (e.g., Official Colored) over MAL base title
+    if english and _variant_score(english) > 0:
         return english
     stats_name = _stats_english_name(_get_value(row, "mal_id"))
     if stats_name:
         return stats_name
+    if english and _normalize_text(english) != _normalize_text(title):
+        return english
     synonyms = parse_list(_get_value(row, "synonymns"))
     synonym_pick = _best_english_synonym(synonyms, title)
     if synonym_pick:
@@ -367,6 +375,7 @@ def list_reading_list():
             "english_name": row["english_name"],
             "japanese_name": row["japanese_name"],
             "item_type": _get_value(row, "item_type"),
+            "cover_url": _get_value(row, "cover_url"),
             "created_at": row["created_at"],
         }
         for row in rows

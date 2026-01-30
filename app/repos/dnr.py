@@ -10,11 +10,21 @@ def list_by_user(user_id, sort="chron"):
     db = get_db()
     cur = db.execute(
         f"""
-        SELECT d.user_id, d.manga_id, d.created_at, m.english_name, m.japanese_name, m.title_name, m.item_type, m.cover_url, m.mal_id,
-               COALESCE(d.mdex_id, m.mangadex_id) AS mdex_id
+        SELECT d.user_id, d.manga_id, d.created_at, m.english_name, m.japanese_name, m.title_name, m.item_type, m.cover_url,
+               COALESCE(d.mal_id, mm.mal_id, m.mal_id) AS mal_id,
+               COALESCE(mm.mangadex_id, d.mdex_id, m.mangadex_id) AS mdex_id
         FROM user_dnr d
+        LEFT JOIN manga_map mm
+            ON mm.mal_id = COALESCE(
+                d.mal_id,
+                CASE WHEN d.mdex_id LIKE 'mal:%' THEN CAST(SUBSTR(d.mdex_id, 5) AS INTEGER) END
+            )
         LEFT JOIN manga_merged m
-            ON m.mangadex_id = d.mdex_id
+            ON m.mangadex_id = COALESCE(
+                CASE WHEN d.mdex_id LIKE 'mal:%' THEN mm.mangadex_id END,
+                d.mdex_id,
+                d.manga_id
+            )
             OR (d.mdex_id IS NULL AND m.mangadex_id = d.manga_id)
             OR (d.mdex_id IS NULL AND m.title_name = d.manga_id)
         WHERE lower(d.user_id) = lower(?)
@@ -50,7 +60,16 @@ def remove(user_id, manga_id):
 def list_manga_ids_by_user(user_id):
     db = get_db()
     cur = db.execute(
-        "SELECT COALESCE(mdex_id, manga_id) AS key FROM user_dnr WHERE lower(user_id) = lower(?)",
+        """
+        SELECT COALESCE(mm.mangadex_id, d.mdex_id, d.manga_id) AS key
+        FROM user_dnr d
+        LEFT JOIN manga_map mm
+            ON mm.mal_id = COALESCE(
+                d.mal_id,
+                CASE WHEN d.mdex_id LIKE 'mal:%' THEN CAST(SUBSTR(d.mdex_id, 5) AS INTEGER) END
+            )
+        WHERE lower(d.user_id) = lower(?)
+        """,
         (user_id,),
     )
     return [row[0] for row in cur.fetchall() if row[0]]

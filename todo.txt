@@ -56,3 +56,10 @@ Recent fixes (Done)
 - Recommendation reasons reworded to avoid repetitive “Because you liked…”
 - Blacklist selection moved to Recommendations (resets on refresh) + blacklist history tracked
 - Dark mode applied across the site (Monokai‑style dark grey)
+
+Latest fixes (Done)
+- /ratings shows all by default (removed Show All toggle)
+- Content types expanded to include Light Novel + Novel (ratings/DNR/reading list)
+- Reading list/DNR/ratings now resolve MAL entries via manga_map for covers + details
+- Dashboard summary includes counts for Ratings, Reading List, DNR
+- Recommendations now pass mal_id + synonyms so English display names match /search

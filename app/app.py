@@ -1,7 +1,7 @@
 import os
 import sqlite3
 
-from flask import Flask, redirect, render_template, session, url_for
+from flask import Flask, redirect, render_template, request, session, url_for
 
 from app.db import close_db
 from app.routes.api import api_bp

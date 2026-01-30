@@ -18,6 +18,8 @@ const rateModalFinished = document.getElementById("rate-modal-finished");
 const rateModalAdd = document.getElementById("rate-modal-add");
 const rateModalClose = document.getElementById("rate-modal-close");
 
+const LEGACY_DEFAULT_TYPES = new Set(["Manga", "Manhwa", "Manhua"]);
+
 function openRateModal(mangaId, displayTitle) {
   if (!rateModal) return;
   rateModal.dataset.id = mangaId;
@@ -52,6 +54,7 @@ async function loadUiPrefs() {
         typeOptions.forEach((opt) => {
           opt.checked = desired.has(opt.value);
         });
+        applyLegacyDefaultTypes(desired);
       } else {
         setDefaultTypes();
       }
@@ -86,6 +89,18 @@ function setDefaultTypes() {
   typeOptions.forEach((opt) => {
     opt.checked = true;
   });
+}
+
+function applyLegacyDefaultTypes(desired) {
+  if (!desired || !typeOptions.length) return false;
+  if (desired.size !== LEGACY_DEFAULT_TYPES.size) return false;
+  for (const value of LEGACY_DEFAULT_TYPES) {
+    if (!desired.has(value)) return false;
+  }
+  typeOptions.forEach((opt) => {
+    opt.checked = true;
+  });
+  return true;
 }
 
 function selectedTypeSet() {

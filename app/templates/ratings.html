@@ -43,7 +43,6 @@
               <option value="rating_asc">Rating (Low → High)</option>
             </select>
           </label>
-          <button id="toggle-ratings" class="ghost">Show All</button>
           <div id="ratings-loading" class="loading" aria-live="polite" aria-busy="false">Loading ratings…</div>
         </div>
         <div id="ratings" class="results-grid"></div>
@@ -53,7 +52,7 @@
     <script>
       window.BASE_PATH = "{{ base_path }}";
     </script>
-    <script src="{{ url_for('static', filename='common.js') }}?v=20260128u"></script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260131c"></script>
 
     <dialog id="ratings-types-modal" class="modal">
       <h3>Content types</h3>
@@ -66,6 +65,8 @@
           <label class="inline"><input type="checkbox" class="type-option" value="Manga" /> Manga</label>
           <label class="inline"><input type="checkbox" class="type-option" value="Manhwa" /> Manhwa</label>
           <label class="inline"><input type="checkbox" class="type-option" value="Manhua" /> Manhua</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Light Novel" /> Light Novel</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Novel" /> Novel</label>
         </div>
       </div>
       <div class="modal-actions">
