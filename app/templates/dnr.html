@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DNR · Lav Labs Manga</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130a" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-row">
+          <div>
+            <h1>Do Not Recommend</h1>
+            <p>Exclude titles you never want to see recommended.</p>
+          </div>
+        </div>
+        <div class="nav-row">
+          <nav class="nav">
+            <a href="{{ base_path }}/dashboard">Dashboard</a>
+          </nav>
+          <div class="user-pill" id="nav-user"></div>
+        </div>
+      </header>
+
+      
+      <section class="card">
+        <h2>Filter DNR</h2>
+        <div class="row">
+          <input id="dnr-filter" type="text" placeholder="filter by title" />
+          <button class="ghost dnr-types-open" type="button">Content types</button>
+          <label class="inline">
+            Sort:
+            <select id="dnr-sort">
+              <option value="chron">Chronological</option>
+              <option value="alpha">Alphabetical</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Your DNR List</h2>
+        <div id="dnr-list" class="results-grid"></div>
+      </section>
+    </main>
+
+    <script>
+      window.BASE_PATH = "{{ base_path }}";
+    </script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260128u"></script>
+    <dialog id="dnr-types-modal" class="modal">
+      <h3>Content types</h3>
+      <div class="stack">
+        <div class="row">
+          <button id="dnr-types-all" class="ghost" type="button">Select all</button>
+          <button id="dnr-types-none" class="ghost" type="button">Remove all</button>
+        </div>
+        <div class="options-grid">
+          <label class="inline"><input type="checkbox" class="type-option" value="Manga" /> Manga</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Manhwa" /> Manhwa</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Manhua" /> Manhua</label>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="dnr-types-cancel" class="ghost" type="button">Cancel</button>
+        <button id="dnr-types-save" type="button">Save</button>
+      </div>
+    </dialog>
+    <script src="{{ url_for('static', filename='dnr.js') }}?v=20260130a"></script>
+  </body>
+</html>

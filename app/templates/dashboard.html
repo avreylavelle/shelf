@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard · Lav Labs Manga</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130a" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-row">
+          <div>
+            <h1>Dashboard</h1>
+            <p>Quick access to your profile, ratings, and recommendations.</p>
+          </div>
+        </div>
+        <div class="nav-row">
+          <nav class="nav">
+            <a href="/">Home</a>
+            {% if session.get("user_id") == "avreylavelle" %}
+              <a href="{{ base_path }}/admin">Admin</a>
+            {% endif %}
+          </nav>
+          <div class="user-pill" id="nav-user"></div>
+        </div>
+      </header>
+
+            <section class="grid">
+        <section class="card dashboard-card">
+          <h2>Search</h2>
+          <p>Find titles and add them to your lists.</p>
+          <a class="cta" href="{{ base_path }}/search">Go to Search</a>
+        </section>
+        <section class="card dashboard-card">
+          <h2>Recommendations</h2>
+          <p>Use genres/themes and get full scored recommendations.</p>
+          <a class="cta" href="{{ base_path }}/recommendations">Go to Recommendations</a>
+        </section>
+        <section class="card dashboard-card">
+          <h2>Your Ratings</h2>
+          <p>Sort, update, and manage your rated titles.</p>
+          <a class="cta" href="{{ base_path }}/ratings">Go to Ratings</a>
+        </section>
+        <section class="card dashboard-card">
+          <h2>Reading List</h2>
+          <p>Titles you plan to read later.</p>
+          <a class="cta" href="{{ base_path }}/reading-list">Go to Reading List</a>
+        </section>
+        <section class="card dashboard-card">
+          <h2>DNR</h2>
+          <p>Titles you do not want recommended.</p>
+          <a class="cta" href="{{ base_path }}/do-not-recommend">Go to DNR</a>
+        </section>
+        <section class="card dashboard-card">
+          <h2>Edit Profile</h2>
+          <p>Update your age, gender, and username. Change your password anytime.</p>
+          <a class="cta" href="{{ base_path }}/profile">Go to Profile</a>
+        </section>
+      </section>
+
+      <section class="card dashboard-card">
+        <h2>Summary</h2>
+        <div id="summary" class="muted">Loading summary…</div>
+      </section>
+    </main>
+
+    <script>
+      window.BASE_PATH = "{{ base_path }}";
+    </script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260128u"></script>
+    <script src="{{ url_for('static', filename='dashboard.js') }}?v=20260128u"></script>
+  </body>
+</html>

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lav Labs</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130a" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <h1>Welcome to Lav Labs</h1>
+        <p>Projects and experiments hosted on this Pi.</p>
+      </header>
+
+      <section class="card">
+        <h2>Projects</h2>
+        <div class="list">
+          {% for link in links %}
+          <a class="cta" href="{{ link.href }}">{{ link.label }}</a>
+          {% endfor %}
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

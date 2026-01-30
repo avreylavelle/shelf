@@ -1,4 +1,58 @@
-User Interface
-Complete overhaul of storing mangas in user_data.csv - store by index / key #, then print out english name or whatever when needed
-perhaps not using csvs at all ^^^
-Fuzzy matching / auto correct 
+Shelf Expansion Roadmap (Updated)
+
+Phase 1 — Core UX & Data Integrity (Done)
+- UX polish baseline: consistent nav, toasts, loading states, hover states, layout fixes
+- Ratings/Reading/DNR exclusivity rules enforced across all flows
+- Sorting + filters with saved UI prefs for Ratings, DNR, Reading List
+- Language-aware display + alphabetical sorting by displayed language
+- Admin tools: user switch + CSV import/export
+- Confirm: log + handle all remaining server errors and edge cases
+
+Phase 1.5 — Recommendation Engine Improvements (Done)
+- Reroll button + guardrails (anchors + weighted mid-tier shuffle)
+- Diversity controls: genre/theme spread + avoid near-duplicate series
+- Freshness toggle: include less popular (novelty boost)
+- Explainability badges per item (requested/history/rated)
+- Advanced options modal (recs)
+- Earliest year preference (soft bias)
+
+Phase 2 — Personalization & User Modeling (Done)
+- Per-user preference model (explicit + implicit signals)
+- Store user feedback signals: clicked, rated, DNR, reading list, finished
+- Per-user weighting: tune match_score weights based on history
+- Feature flags for A/B: baseline vs personalized weights
+- Export per-user model snapshot (for debugging)
+- Guardrails: cold-start fallback and capped influence
+- Transparency: personalization toggle + strength ramping
+
+Phase 3 — ML Iteration (Opt-in)
+- Lightweight per-user ML (e.g., logistic regression or matrix factorization)
+- Model retrain schedule + caching
+- Training dataset pipeline: ratings + implicit feedback
+- Guardrails: cold-start fallback, minimum data threshold
+
+Phase 4 — Content Expansion (In progress)
+- Content type filters in recommendations (Manga/Manhwa/Manhua/Novel/Light Novel/etc.)
+- Add content types: Manga | Light Novel | Book
+- Normalize IDs + metadata across datasets
+- Cross-type recommendations (manga → novels, etc.)
+- Per-type filters and UI tabs
+
+Phase 5 — Discovery & Social (Optional)
+- Explore page: trending, top-rated, seasonal picks
+- Public lists + shareable profile page
+- Optional follows/likes
+
+Notes
+- Randomization should never return already-rated or DNR items.
+- “Reroll” uses same filters, just reshuffles eligible set.
+- ML should remain optional and transparent; keep baseline recommender.
+
+Recent fixes (Done)
+- Sort preferences persisted for Ratings/DNR/Reading List + content types default to all
+- Rating note (0–10) added in rate modals
+- “Recommended by us” defaults unchecked
+- Added guide section on the Shelf landing page
+- Recommendation reasons reworded to avoid repetitive “Because you liked…”
+- Blacklist selection moved to Recommendations (resets on refresh) + blacklist history tracked
+- Dark mode applied across the site (Monokai‑style dark grey)

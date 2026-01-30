@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login · Lav Labs Manga</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130a" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <h1>Lav Labs Manga</h1>
+        <p>Sign in to your recommender dashboard.</p>
+      </header>
+
+      <section class="card">
+        <h2>Login / Register</h2>
+        <div class="row">
+          <input id="username" type="text" placeholder="username" />
+          <input id="password" type="password" placeholder="password" />
+        </div>
+        <div class="row">
+          <button id="login-btn">Login</button>
+          <button id="register-btn">Register</button>
+        </div>
+        <div id="auth-status" class="status"></div>
+      </section>
+    </main>
+
+    <script>
+      window.BASE_PATH = "{{ base_path }}";
+    </script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260128u"></script>
+    <script src="{{ url_for('static', filename='login.js') }}?v=20260128u"></script>
+  </body>
+</html>

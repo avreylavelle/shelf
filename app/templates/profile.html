@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Profile · Lav Labs Manga</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130a" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-row">
+          <div>
+            <h1>Profile</h1>
+            <p>Manage your account and preferences.</p>
+          </div>
+        </div>
+        <div class="nav-row">
+          <nav class="nav">
+            <a href="{{ base_path }}/dashboard">Dashboard</a>
+          </nav>
+          <div class="user-pill" id="nav-user"></div>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>Edit Profile</h2>
+        <div class="row">
+          <input id="profile-username" type="text" placeholder="username" />
+          <input id="profile-age" type="number" placeholder="age" />
+          <select id="profile-gender">
+            <option value="">Select gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+        <div class="row">
+          <select id="profile-language">
+            <option value="English">English</option>
+            <option value="Japanese">Japanese</option>
+          </select>
+          <button id="save-profile">Save Profile</button>
+        </div>
+        <div id="profile-status" class="status"></div>
+      </section>
+
+      <section class="card">
+        <h2>History</h2>
+        <p class="muted">Saved preference history used by the recommender.</p>
+        <div class="grid">
+          <div>
+            <div class="chips-label">Preferred genres</div>
+            <div id="history-genres" class="chips"></div>
+          </div>
+          <div>
+            <div class="chips-label">Preferred themes</div>
+            <div id="history-themes" class="chips"></div>
+          </div>
+          <div>
+            <div class="chips-label">Blacklist genres</div>
+            <div id="history-blacklist-genres" class="chips"></div>
+          </div>
+          <div>
+            <div class="chips-label">Blacklist themes</div>
+            <div id="history-blacklist-themes" class="chips"></div>
+          </div>
+        </div>
+        <div class="row">
+          <button id="clear-history" class="ghost" type="button">Clear History</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Logout</h2>
+        <div class="row">
+          <a class="cta" href="{{ base_path }}/logout">Logout</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Change Password</h2>
+        <div class="row">
+          <input id="current-password" type="password" placeholder="current password" />
+          <input id="new-password" type="password" placeholder="new password" />
+        </div>
+        <div class="row">
+          <button id="change-password">Change Password</button>
+        </div>
+      </section>
+
+
+      <section class="card">
+        <h2>Delete Account</h2>
+        <p class="muted">This removes your account profile, but leaves your ratings in the database.</p>
+        <div class="row">
+          <button id="delete-account" class="danger" type="button">Delete Account</button>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      window.BASE_PATH = "{{ base_path }}";
+    </script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260128u"></script>
+    <script src="{{ url_for('static', filename='profile.js') }}?v=20260129c"></script>
+  </body>
+</html>

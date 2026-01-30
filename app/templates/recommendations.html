@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recommendations · Lav Labs Manga</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=20260130a" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="hero">
+        <div class="hero-row">
+          <div>
+            <h1>Recommendations</h1>
+            <p>Use genres and themes to steer your results.</p>
+          </div>
+        </div>
+        <div class="nav-row">
+          <nav class="nav">
+            <a href="{{ base_path }}/dashboard">Dashboard</a>
+          </nav>
+          <div class="user-pill" id="nav-user"></div>
+        </div>
+      </header>
+
+      <section class="card">
+        <p class="muted">Pick genres and themes from the dropdowns, then fetch recommendations.</p>
+
+        <div class="grid">
+          <div>
+            <div class="row">
+              <select id="genre-select">
+                <option value="">Select a genre</option>
+                {% for genre in genres %}
+                <option value="{{ genre }}">{{ genre }}</option>
+                {% endfor %}
+              </select>
+              <button id="add-genre" class="ghost" type="button">Add Genre</button>
+            </div>
+            <div class="chips-label">Selected genres</div>
+            <div id="selected-genres" class="chips"></div>
+          </div>
+          <div>
+            <div class="row">
+              <select id="theme-select">
+                <option value="">Select a theme</option>
+                {% for theme in themes %}
+                <option value="{{ theme }}">{{ theme }}</option>
+                {% endfor %}
+              </select>
+              <button id="add-theme" class="ghost" type="button">Add Theme</button>
+            </div>
+            <div class="chips-label">Selected themes</div>
+            <div id="selected-themes" class="chips"></div>
+          </div>
+        </div>
+
+        <p class="muted">Optional: blacklist genres/themes to exclude from results (this resets on refresh).</p>
+        <div class="grid">
+          <div>
+            <div class="row">
+              <select id="blacklist-genre-select">
+                <option value="">Select a genre</option>
+                {% for genre in genres %}
+                <option value="{{ genre }}">{{ genre }}</option>
+                {% endfor %}
+              </select>
+              <button id="add-blacklist-genre" class="ghost" type="button">Blacklist Genre</button>
+            </div>
+            <div class="chips-label">Blacklisted genres</div>
+            <div id="blacklist-genres" class="chips"></div>
+          </div>
+          <div>
+            <div class="row">
+              <select id="blacklist-theme-select">
+                <option value="">Select a theme</option>
+                {% for theme in themes %}
+                <option value="{{ theme }}">{{ theme }}</option>
+                {% endfor %}
+              </select>
+              <button id="add-blacklist-theme" class="ghost" type="button">Blacklist Theme</button>
+            </div>
+            <div class="chips-label">Blacklisted themes</div>
+            <div id="blacklist-themes" class="chips"></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <button id="recommend-btn" type="button">Get Recommendations</button>
+          <button id="reroll-btn" class="ghost" type="button">Reroll</button>
+          <button id="options-btn" class="ghost" type="button">Options</button>
+          <button id="info-btn" class="ghost info-btn" type="button" aria-label="How recommendations work">i</button>
+          <div id="recs-loading" class="loading" aria-live="polite" aria-busy="false">Loading recommendations…</div>
+        </div>
+
+        <div id="recommendations" class="results-grid">
+          <p class="muted">Choose genres/themes and click “Get Recommendations”.</p>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      window.BASE_PATH = "{{ base_path }}";
+    </script>
+    <script src="{{ url_for('static', filename='common.js') }}?v=20260128m"></script>
+
+    <dialog id="rate-modal" class="modal">
+      <h3 id="rate-modal-title">Rate</h3>
+      <div class="row">
+        <input id="rate-modal-input" type="number" min="0" max="10" step="0.1" placeholder="rating" />
+      </div>
+      <div class="muted">Rating (0–10)</div>
+      <div class="row">
+        <label class="inline flag-line">
+          <input id="rate-modal-flag" type="checkbox" />
+          Recommended by us
+        </label>
+      </div>
+      <div class="row">
+        <label class="inline flag-line">
+          <input id="rate-modal-finished" type="checkbox" />
+          Finished reading
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="rate-modal-close" class="ghost" type="button">Cancel</button>
+        <button id="rate-modal-reading" class="ghost" type="button">Add to Reading List</button>
+        <button id="rate-modal-add" type="button">Add</button>
+      </div>
+    </dialog>
+    <dialog id="add-modal" class="modal">
+      <h3 id="add-modal-title">Add</h3>
+      <div class="stack">
+        <button id="add-rate" type="button">Rate</button>
+        <button id="add-reading" class="ghost" type="button">Reading List</button>
+        <button id="add-dnr" class="ghost" type="button">DNR</button>
+      </div>
+      <div class="modal-actions">
+        <button id="add-close" class="ghost" type="button">Cancel</button>
+      </div>
+    </dialog>
+    <dialog id="info-modal" class="modal">
+      <h3>How recommendations work</h3>
+      <div class="stack">
+        <p class="muted">Quick guide to the controls on this page:</p>
+        <div><strong>Genres & Themes</strong>: Pick genres and themes to steer results.</div>
+        <div><strong>Content types</strong>: Choose which formats to include (Manga, Manhwa, etc.).</div>
+        <div><strong>Diversify</strong>: Spreads results across genres/themes and avoids near‑duplicate series.</div>
+        <div><strong>Include less popular</strong>: Adds a small boost for lower‑popularity titles.</div>
+        <div><strong>Personalized</strong>: Uses your ratings, clicks, and lists to bias results (requires enough history).</div>
+        <div><strong>Earliest year</strong>: Bias toward newer titles (older titles get a small penalty).</div>
+        <div><strong>Reroll</strong>: Keeps filters the same and reshuffles from the current pool.</div>
+      </div>
+      <div class="modal-actions">
+        <button id="info-close" class="ghost" type="button">Close</button>
+      </div>
+    </dialog>
+    <dialog id="options-modal" class="modal">
+      <h3>Recommendation Options</h3>
+      <div class="stack">
+        <div class="details-label">Content types</div>
+        <div class="row">
+          <button id="types-all" class="ghost" type="button">Select all</button>
+          <button id="types-none" class="ghost" type="button">Remove all</button>
+        </div>
+        <div class="options-grid">
+          <label class="inline"><input type="checkbox" class="type-option" value="Manga" checked /> Manga</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Manhwa" checked /> Manhwa</label>
+          <label class="inline"><input type="checkbox" class="type-option" value="Manhua" checked /> Manhua</label>
+        </div>
+        <div class="details-label options-divider">Other options</div>
+        <label class="inline">
+          <input type="checkbox" id="diversify-toggle" checked />
+          Diversify
+        </label>
+        <label class="inline">
+          <input type="checkbox" id="novelty-toggle" />
+          Include less popular
+        </label>
+        <label class="inline">
+          <input type="checkbox" id="personalize-toggle" checked />
+          Personalized
+        </label>
+        <label class="inline">
+          Earliest year (preference)
+          <input id="min-year" type="number" min="1950" max="2026" step="1" value="2007" />
+        </label>
+      </div>
+      <div class="modal-actions">
+        <button id="options-cancel" class="ghost" type="button">Cancel</button>
+        <button id="options-save" type="button">Save</button>
+      </div>
+    </dialog>
+
+    <script src="{{ url_for('static', filename='recommendations.js') }}?v=20260129e"></script>
+  </body>
+</html>
