@@ -761,10 +761,15 @@ def recommendations_with_prefs():
         min_year = None
     content_types = _parse_list(data.get("content_types"))
 
-    # Keep history in sync (this is your "memory")
+    # Keep history in sync (rolling request window)
     if not reroll:
-        profile_service.increment_preferences(user_id, current_genres, current_themes)
-        profile_service.increment_blacklist_history(user_id, blacklist_genres, blacklist_themes)
+        profile_service.record_request_history(
+            user_id,
+            current_genres,
+            current_themes,
+            blacklist_genres,
+            blacklist_themes,
+        )
 
     profile = profile_service.get_profile(user_id)
     language = (profile or {}).get("language") or "English"

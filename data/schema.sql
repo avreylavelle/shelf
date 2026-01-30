@@ -59,6 +59,29 @@ CREATE TABLE IF NOT EXISTS user_events (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS user_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    genres TEXT,
+    themes TEXT,
+    blacklist_genres TEXT,
+    blacklist_themes TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_request_cache (
+    user_id TEXT PRIMARY KEY,
+    request_count INTEGER DEFAULT 0,
+    preferred_genres TEXT,
+    preferred_themes TEXT,
+    blacklist_genres TEXT,
+    blacklist_themes TEXT,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(username)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_requests_user_time ON user_requests (user_id, created_at);
+
 CREATE TABLE IF NOT EXISTS manga_stats (
     mal_id INTEGER PRIMARY KEY,
     link TEXT,

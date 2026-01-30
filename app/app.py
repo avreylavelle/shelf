@@ -110,6 +110,40 @@ def init_db(app):
             """
         )
 
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_requests'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE user_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                genres TEXT,
+                themes TEXT,
+                blacklist_genres TEXT,
+                blacklist_themes TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_request_cache'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE user_request_cache (
+                user_id TEXT PRIMARY KEY,
+                request_count INTEGER DEFAULT 0,
+                preferred_genres TEXT,
+                preferred_themes TEXT,
+                blacklist_genres TEXT,
+                blacklist_themes TEXT,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(username)
+            )
+            """
+        )
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_user_requests_user_time ON user_requests (user_id, created_at)")
+
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='manga_stats'")
     if not cur.fetchone():
         cur.execute(
