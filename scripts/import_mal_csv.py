@@ -55,8 +55,8 @@ def clean(value):
 
 def main():
     parser = argparse.ArgumentParser(description="Import MAL CSV into manga_stats table")
-    parser.add_argument("--db", default="/opt/manga_recommender_ml/data/db/manga.db")
-    parser.add_argument("--csv", default="/opt/manga_recommender_ml/data/imports/mal.csv")
+    parser.add_argument("--db", default="/opt/shelf/data/db/manga.db")
+    parser.add_argument("--csv", default="/opt/shelf/data/imports/mal.csv")
     parser.add_argument("--replace", action="store_true", help="replace existing manga_stats rows")
     parser.add_argument("--chunk", type=int, default=2000)
     args = parser.parse_args()

@@ -169,7 +169,7 @@ def bump_timestamp(value, seconds=1):
 
 def main():
     parser = argparse.ArgumentParser(description="Ingest MangaDex catalog into manga_core")
-    parser.add_argument("--db", default="/opt/manga_recommender_ml/data/db/manga.db")
+    parser.add_argument("--db", default="/opt/shelf/data/db/manga.db")
     parser.add_argument("--limit", type=int, default=100)
     parser.add_argument("--max", type=int, default=500, help="max items to fetch (0 for all)")
     parser.add_argument("--sleep", type=float, default=0.2)

@@ -3,7 +3,7 @@ import re
 import sqlite3
 from pathlib import Path
 
-DB_PATH = "/opt/manga_recommender_ml/data/db/manga.db"
+DB_PATH = "/opt/shelf/data/db/manga.db"
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 
 

@@ -53,7 +53,7 @@ def extract_year(value):
 
 def main():
     parser = argparse.ArgumentParser(description="Build MangaDex -> MAL map using title fallback")
-    parser.add_argument("--db", default="/opt/manga_recommender_ml/data/db/manga.db")
+    parser.add_argument("--db", default="/opt/shelf/data/db/manga.db")
     parser.add_argument("--max", type=int, default=0, help="max mappings to add (0 = all)")
     args = parser.parse_args()
 

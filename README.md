@@ -48,7 +48,7 @@ The web UI currently defaults to **v3**.
 
 ## Project Structure
 ```
-manga_recommender_ml/
+shelf/
   app/                 # Flask web app
     routes/            # API + auth
     services/          # Web services layer
