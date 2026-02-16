@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     blacklist_themes TEXT,
     signal_genres TEXT,
     signal_themes TEXT,
-    password_hash TEXT
+    password_hash TEXT,
+    is_admin INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS user_ratings (

@@ -72,7 +72,18 @@ def update_username(old_username, new_username):
         "UPDATE user_reading_list SET user_id = ? WHERE lower(user_id) = lower(?)",
         (new_username, old_username),
     )
-    # Note: event/request history tables are handled at service level if needed.
+    db.execute(
+        "UPDATE user_events SET user_id = ? WHERE lower(user_id) = lower(?)",
+        (new_username, old_username),
+    )
+    db.execute(
+        "UPDATE user_requests SET user_id = ? WHERE lower(user_id) = lower(?)",
+        (new_username, old_username),
+    )
+    db.execute(
+        "UPDATE user_request_cache SET user_id = ? WHERE lower(user_id) = lower(?)",
+        (new_username, old_username),
+    )
     db.commit()
 
 

@@ -6,18 +6,60 @@ import sqlite3
 from flask import Flask, redirect, render_template, request, session, url_for
 
 from app.db import close_db
+from app.repos import users as users_repo
 from app.routes.api import api_bp
 from app.routes.auth import auth_bp
 from app.services import recommendations as rec_service
 
 BASE_PATH = "/shelf"  # keep all web routes under /shelf
-ADMIN_USER = "avreylavelle"  # simple admin gate for now
+WEAK_SECRET_KEYS = {"dev-change-me", "changeme", "change-me", "secret", "default", "password"}
 
 
 def _default_db_path():
     """Handle default db path for this module."""
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     return os.path.join(root, "data", "db", "manga.db")
+
+
+def _env_flag(name, default=False):
+    """Read boolean env flags with explicit defaults."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_dev_mode():
+    """Detect development/test mode for local runs."""
+    env = (os.environ.get("FLASK_ENV") or os.environ.get("APP_ENV") or "").strip().lower()
+    if env in {"dev", "development", "local", "test"}:
+        return True
+    return _env_flag("FLASK_DEBUG", default=False)
+
+
+def _debug_enabled():
+    """Default debug to disabled unless explicitly enabled."""
+    return _env_flag("FLASK_DEBUG", default=False)
+
+
+def _resolve_secret_key():
+    """Fail fast on missing or weak secret keys outside development."""
+    secret = os.environ.get("FLASK_SECRET_KEY")
+    if _is_dev_mode():
+        return secret or "dev-change-me"
+    secret = (secret or "").strip()
+    if not secret:
+        raise RuntimeError("FLASK_SECRET_KEY is required outside development mode.")
+    if len(secret) < 16 or secret.lower() in WEAK_SECRET_KEYS:
+        raise RuntimeError("FLASK_SECRET_KEY is too weak. Use at least 16 random characters.")
+    return secret
+
+
+def _is_admin_user(username):
+    """Resolve admin role via DB flags instead of hardcoded usernames."""
+    if not username:
+        return False
+    return users_repo.is_admin(username)
 
 
 def init_db(app):
@@ -40,7 +82,10 @@ def init_db(app):
                 preferred_themes TEXT,
                 blacklist_genres TEXT,
                 blacklist_themes TEXT,
-                password_hash TEXT
+                signal_genres TEXT,
+                signal_themes TEXT,
+                password_hash TEXT,
+                is_admin INTEGER DEFAULT 0
             )
             """
         )
@@ -247,6 +292,8 @@ def init_db(app):
     user_cols = {row[1] for row in cur.fetchall()}
     if "password_hash" not in user_cols:
         cur.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
+    if "is_admin" not in user_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
 
 
     # Add language column if missing (existing DB)
@@ -362,7 +409,7 @@ def _require_login():
 
 def _require_admin():
     """Handle require admin for this module."""
-    if session.get("user_id") != ADMIN_USER:
+    if not _is_admin_user(session.get("user_id")):
         return redirect(url_for("dashboard"))
     return None
 
@@ -375,7 +422,7 @@ def create_app():
         static_url_path=f"{BASE_PATH}/static",
         template_folder="templates",
     )
-    app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "dev-change-me")
+    app.config["SECRET_KEY"] = _resolve_secret_key()
     app.config["DATABASE"] = os.environ.get("MANGA_DB_PATH", _default_db_path())
 
     init_db(app)
@@ -416,7 +463,7 @@ def create_app():
         guard = _require_login()
         if guard:
             return guard
-        return render_template("dashboard.html", base_path=BASE_PATH)
+        return render_template("dashboard.html", base_path=BASE_PATH, is_admin=_is_admin_user(session.get("user_id")))
 
     @app.route(f"{BASE_PATH}/profile")
     def profile():
@@ -501,4 +548,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=_debug_enabled())

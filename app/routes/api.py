@@ -16,8 +16,16 @@ from app.services import dnr as dnr_service
 from app.services import reading_list as reading_list_service
 from app.services import signals as signals_service
 from app.repos import manga as manga_repo
+from app.repos import users as users_repo
 
 api_bp = Blueprint("api", __name__, url_prefix="/shelf/api")
+
+
+def _is_admin_user(username):
+    """Resolve admin role using DB-backed user flags."""
+    if not username:
+        return False
+    return users_repo.is_admin(username)
 
 
 def login_required(fn):
@@ -33,13 +41,13 @@ def login_required(fn):
 
 
 def admin_required(fn):
-    """Wrap endpoint handlers and enforce the hardcoded admin account."""
+    """Wrap endpoint handlers and enforce DB-backed admin access."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
         """Wrap the endpoint with shared access checks."""
         if not session.get("user_id"):
             return jsonify({"error": "auth required"}), 401
-        if session.get("user_id") != "avreylavelle":
+        if not _is_admin_user(session.get("user_id")):
             return jsonify({"error": "admin only"}), 403
         return fn(*args, **kwargs)
 
@@ -236,7 +244,7 @@ def _dedupe_by_mal_id(items, query=None, limit=None):
 def get_session():
     """Return session."""
     user_id = session.get("user_id")
-    return jsonify({"logged_in": bool(user_id), "user": user_id})
+    return jsonify({"logged_in": bool(user_id), "user": user_id, "is_admin": _is_admin_user(user_id)})
 
 
 
@@ -592,11 +600,13 @@ def browse_manga():
         except (TypeError, ValueError):
             min_score_val = None
 
-    db_path = rec_service._resolve_db_path(current_app.config["DATABASE"])
-    df = rec_service._load_manga_df(db_path).copy()
+    # Reuse cached dataframe instead of reloading manga_merged on every browse request.
+    cache = rec_service._get_cache(current_app.config["DATABASE"])
+    df = cache["df"].copy()
 
-    df["genres"] = df["genres"].apply(parse_list)
-    df["themes"] = df["themes"].apply(parse_list)
+    # Keep this path tolerant if cached values ever arrive as serialized strings.
+    df["genres"] = df["genres"].apply(lambda value: value if isinstance(value, list) else parse_list(value))
+    df["themes"] = df["themes"].apply(lambda value: value if isinstance(value, list) else parse_list(value))
 
     if genres:
         df = df[df["genres"].apply(lambda values: any(g in values for g in genres))]
@@ -707,7 +717,7 @@ def record_event():
     return jsonify({"ok": True})
 
 
-# Admin endpoints (restricted to avreylavelle)
+# Admin endpoints (restricted via users.is_admin role)
 @api_bp.post("/admin/switch-user")
 @admin_required
 def admin_switch_user():

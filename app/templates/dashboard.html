@@ -19,7 +19,7 @@
         <div class="nav-row">
           <nav class="nav">
             <a href="/">Home</a>
-            {% if session.get("user_id") == "avreylavelle" %}
+            {% if is_admin %}
               <a href="{{ base_path }}/admin">Admin</a>
             {% endif %}
           </nav>
