@@ -177,20 +177,23 @@ function renderRatings() {
 
   ratingsEl.innerHTML = items
     .map((item) => {
-      const mangaId = item.mdex_id || item.manga_id;
-      const title = item.display_title || item.manga_id;
+      const mangaId = item.mdex_id || item.manga_id || "";
+      const title = item.display_title || item.manga_id || mangaId;
+      const safeMangaId = escapeHtml(mangaId);
+      const safeTitle = escapeHtml(title);
+      const safeRating = escapeHtml(item.rating ?? "n/a");
       const cover = item.cover_url
-        ? `<img class="result-cover" src="${item.cover_url}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
+        ? `<img class="result-cover" src="${escapeHtml(item.cover_url)}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
         : `<div class="result-cover placeholder"></div>`;
       return `
-        <div class="result-card" data-id="${mangaId}" data-display="${title}">
-          <strong>${title}</strong>
+        <div class="result-card" data-id="${safeMangaId}" data-display="${safeTitle}">
+          <strong>${safeTitle}</strong>
           ${cover}
-          <div class="muted">Rating: ${item.rating ?? "n/a"}</div>
+          <div class="muted">Rating: ${safeRating}</div>
           <div class="result-actions">
-            <button class="details-btn" data-id="${mangaId}" type="button">Details</button>
-            <button class="rate-open" data-id="${mangaId}" data-display="${title}" data-rating="${item.rating ?? ""}" data-rec="${item.recommended_by_us ? 1 : 0}" data-finished="${item.finished_reading ? 1 : 0}" type="button">Update</button>
-            <button class="delete-btn" data-manga-id="${mangaId}">Remove</button>
+            <button class="details-btn" data-id="${safeMangaId}" type="button">Details</button>
+            <button class="rate-open" data-id="${safeMangaId}" data-display="${safeTitle}" data-rating="${escapeHtml(item.rating ?? "")}" data-rec="${item.recommended_by_us ? 1 : 0}" data-finished="${item.finished_reading ? 1 : 0}" type="button">Update</button>
+            <button class="delete-btn" data-manga-id="${safeMangaId}">Remove</button>
           </div>
         </div>
       `;

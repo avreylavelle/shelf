@@ -149,25 +149,28 @@ function renderReadingList(items) {
   readingList.innerHTML = collapsed
     .map(
       (item) => {
-        const mangaId = item.mdex_id || item.manga_id;
-        const title = item.display_title || item.manga_id;
+        const mangaId = item.mdex_id || item.manga_id || "";
+        const title = item.display_title || item.manga_id || mangaId;
+        const safeMangaId = escapeHtml(mangaId);
+        const safeTitle = escapeHtml(title);
+        const safeCreatedAt = escapeHtml(item.created_at || "");
         const cover = item.cover_url
-          ? `<img class="result-cover" src="${item.cover_url}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
+          ? `<img class="result-cover" src="${escapeHtml(item.cover_url)}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
           : `<div class="result-cover placeholder"></div>`;
         return `
-        <div class="result-card" data-id="${mangaId}" data-display="${title}">
-          <strong>${title}</strong>
+        <div class="result-card" data-id="${safeMangaId}" data-display="${safeTitle}">
+          <strong>${safeTitle}</strong>
           ${cover}
-          <div class="muted">Added: ${item.created_at}</div>
+          <div class="muted">Added: ${safeCreatedAt}</div>
           <div class="muted">Status</div>
-          <select class="reading-status" data-id="${mangaId}">
+          <select class="reading-status" data-id="${safeMangaId}">
             <option value="Plan to Read" ${normalizeStatus(item.status) === "Plan to Read" ? "selected" : ""}>Plan to Read</option>
             <option value="In Progress" ${normalizeStatus(item.status) === "In Progress" ? "selected" : ""}>In Progress</option>
           </select>
           <div class="result-actions">
-            <button class="details-btn" data-id="${mangaId}" type="button">Details</button>
-            <button class="reading-rate" data-id="${mangaId}" data-display="${title}" type="button">Rate</button>
-            <button class="reading-remove" data-id="${mangaId}" type="button">Remove</button>
+            <button class="details-btn" data-id="${safeMangaId}" type="button">Details</button>
+            <button class="reading-rate" data-id="${safeMangaId}" data-display="${safeTitle}" type="button">Rate</button>
+            <button class="reading-remove" data-id="${safeMangaId}" type="button">Remove</button>
           </div>
         </div>
       `;

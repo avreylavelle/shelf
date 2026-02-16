@@ -189,21 +189,26 @@ function renderList(container, items) {
   container.innerHTML = items
     .map(
       (item) => {
-        const title = item.display_title || item.title;
+        const itemId = item.id || "";
+        const title = item.display_title || item.title || itemId;
+        const safeItemId = escapeHtml(itemId);
+        const safeTitle = escapeHtml(title);
+        const safeScore = escapeHtml(item.score ?? "n/a");
         const cover = item.cover_url
-          ? `<img class="result-cover" src="${item.cover_url}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
+          ? `<img class="result-cover" src="${escapeHtml(item.cover_url)}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
           : `<div class="result-cover placeholder"></div>`;
-        const locations = getLocations(item.id);
+        const locations = getLocations(itemId);
+        const safeLocations = escapeHtml(locations.join(", "));
         return `
-        <div class="result-card" data-id="${item.id}" data-display="${title}">
-          <strong>${title}</strong>
+        <div class="result-card" data-id="${safeItemId}" data-display="${safeTitle}">
+          <strong>${safeTitle}</strong>
           ${cover}
-          <div class="muted">Score: ${item.score ?? "n/a"}</div>
-          ${locations.length ? `<div class="badge">Currently in: ${locations.join(", ")}</div>` : ""}
-          <div class="details" data-details="${item.id}"></div>
+          <div class="muted">Score: ${safeScore}</div>
+          ${locations.length ? `<div class="badge">Currently in: ${safeLocations}</div>` : ""}
+          <div class="details" data-details="${safeItemId}"></div>
           <div class="result-actions">
-            <button class="details-btn" data-id="${item.id}" type="button">Details</button>
-            <button class="add-open" data-id="${item.id}" data-display="${title}" type="button">Add</button>
+            <button class="details-btn" data-id="${safeItemId}" type="button">Details</button>
+            <button class="add-open" data-id="${safeItemId}" data-display="${safeTitle}" type="button">Add</button>
           </div>
         </div>
       `;
@@ -216,24 +221,26 @@ function renderList(container, items) {
 function renderBrowseChips() {
   if (browseGenresEl) {
     browseGenresEl.innerHTML = state.browseGenres
-      .map(
-        (item) => `
-          <button class="chip" data-type="genre" data-value="${item}" type="button">
-            ${item} <span aria-hidden="true">×</span>
+      .map((item) => {
+        const safeItem = escapeHtml(item);
+        return `
+          <button class="chip" data-type="genre" data-value="${safeItem}" type="button">
+            ${safeItem} <span aria-hidden="true">×</span>
           </button>
-        `
-      )
+        `;
+      })
       .join("");
   }
   if (browseThemesEl) {
     browseThemesEl.innerHTML = state.browseThemes
-      .map(
-        (item) => `
-          <button class="chip" data-type="theme" data-value="${item}" type="button">
-            ${item} <span aria-hidden="true">×</span>
+      .map((item) => {
+        const safeItem = escapeHtml(item);
+        return `
+          <button class="chip" data-type="theme" data-value="${safeItem}" type="button">
+            ${safeItem} <span aria-hidden="true">×</span>
           </button>
-        `
-      )
+        `;
+      })
       .join("");
   }
 }

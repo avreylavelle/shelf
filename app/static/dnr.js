@@ -109,19 +109,22 @@ function renderDnr(items) {
   dnrList.innerHTML = filtered
     .map(
       (item) => {
-        const mangaId = item.mdex_id || item.manga_id;
-        const title = item.display_title || item.manga_id;
+        const mangaId = item.mdex_id || item.manga_id || "";
+        const title = item.display_title || item.manga_id || mangaId;
+        const safeMangaId = escapeHtml(mangaId);
+        const safeTitle = escapeHtml(title);
+        const safeCreatedAt = escapeHtml(item.created_at || "");
         const cover = item.cover_url
-          ? `<img class="result-cover" src="${item.cover_url}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
+          ? `<img class="result-cover" src="${escapeHtml(item.cover_url)}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
           : `<div class="result-cover placeholder"></div>`;
         return `
-        <div class="result-card" data-id="${mangaId}" data-display="${title}">
-          <strong>${title}</strong>
+        <div class="result-card" data-id="${safeMangaId}" data-display="${safeTitle}">
+          <strong>${safeTitle}</strong>
           ${cover}
-          <div class="muted">Added: ${item.created_at}</div>
+          <div class="muted">Added: ${safeCreatedAt}</div>
           <div class="result-actions">
-            <button class="details-btn" data-id="${mangaId}" type="button">Details</button>
-            <button class="dnr-remove" data-id="${mangaId}" type="button">Remove</button>
+            <button class="details-btn" data-id="${safeMangaId}" type="button">Details</button>
+            <button class="dnr-remove" data-id="${safeMangaId}" type="button">Remove</button>
           </div>
         </div>
       `;

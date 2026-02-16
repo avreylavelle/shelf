@@ -79,11 +79,11 @@ async function clearHistory() {
 // Deleteaccount helper for this page.
 async function deleteAccount() {
   const ok = window.confirm(
-    "This will delete your account profile. Your ratings will stay in the database. Continue?"
+    "This will permanently delete your account and all related ratings, lists, events, and request history. Continue?"
   );
   if (!ok) return;
   await api("/api/auth/delete-account", { method: "POST" });
-  setStatus("Account deleted. Redirecting...");
+  setStatus("Account and related data deleted. Redirecting...");
   window.location.href = `${BASE_PATH}/login`;
 }
 

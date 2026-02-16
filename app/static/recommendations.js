@@ -182,25 +182,28 @@ function renderRecommendations(items) {
 
   recommendationsEl.innerHTML = items
     .map((item) => {
-      const mangaId = item.id || item.title;
+      const mangaId = item.id || item.title || "";
       const currentRating = state.ratingsMap[mangaId];
       const ratingText = currentRating == null ? "" : `Your rating: ${currentRating}`;
-      const displayTitle = item.display_title || item.english_name || item.title;
+      const displayTitle = item.display_title || item.english_name || item.title || mangaId;
+      const safeMangaId = escapeHtml(mangaId);
+      const safeDisplayTitle = escapeHtml(displayTitle);
+      const safeRatingText = escapeHtml(ratingText);
       const cover = item.cover_url
-        ? `<img class="result-cover" src="${item.cover_url}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
+        ? `<img class="result-cover" src="${escapeHtml(item.cover_url)}" alt="Cover" loading="lazy" referrerpolicy="no-referrer">`
         : `<div class="result-cover placeholder"></div>`;
       const reasons = (item.reasons || [])
-        .map((reason) => `<span class="badge">${reason}</span>`)
+        .map((reason) => `<span class="badge">${escapeHtml(reason)}</span>`)
         .join("");
       return `
-        <div class="result-card" data-id="${mangaId}" data-display="${displayTitle}">
-          <strong>${displayTitle}</strong>
+        <div class="result-card" data-id="${safeMangaId}" data-display="${safeDisplayTitle}">
+          <strong>${safeDisplayTitle}</strong>
           ${cover}
-          ${ratingText ? `<div class="muted">${ratingText}</div>` : ""}
+          ${ratingText ? `<div class="muted">${safeRatingText}</div>` : ""}
           ${reasons ? `<div class="badges">${reasons}</div>` : ""}
           <div class="result-actions">
-            <button class="details-btn" data-id="${mangaId}" type="button">Details</button>
-            <button class="add-open" data-id="${mangaId}" data-display="${displayTitle}" type="button">Add</button>
+            <button class="details-btn" data-id="${safeMangaId}" type="button">Details</button>
+            <button class="add-open" data-id="${safeMangaId}" data-display="${safeDisplayTitle}" type="button">Add</button>
           </div>
         </div>
       `;
@@ -219,13 +222,15 @@ function renderSelectionChips(container, items, type) {
   if (!container) return;
   const safeItems = Array.isArray(items) ? items : [];
   container.innerHTML = safeItems
-    .map(
-      (item) => `
-        <button class="chip" data-type="${type}" data-value="${item}" type="button">
-          ${item} <span aria-hidden="true">×</span>
+    .map((item) => {
+      const safeType = escapeHtml(type);
+      const safeItem = escapeHtml(item);
+      return `
+        <button class="chip" data-type="${safeType}" data-value="${safeItem}" type="button">
+          ${safeItem} <span aria-hidden="true">×</span>
         </button>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
@@ -290,7 +295,8 @@ async function fetchRecommendationsWithPrefs() {
     const items = collapseByMalId(data.items || []);
     renderRecommendations(items);
   } catch (err) {
-    recommendationsEl.innerHTML = `<p class='muted'>${err.message}</p>`;
+    const message = err?.message || "Unable to load recommendations.";
+    recommendationsEl.innerHTML = `<p class='muted'>${escapeHtml(message)}</p>`;
   } finally {
     setLoading(false);
   }
@@ -312,7 +318,7 @@ async function handleDetails(mangaId, title) {
     const message = err?.message || "Details failed";
     showToast(message);
     if (window.openDetailsModal) {
-      window.openDetailsModal(`<div class='muted'>${message}</div>`, title || mangaId || "Details");
+      window.openDetailsModal(`<div class='muted'>${escapeHtml(message)}</div>`, title || mangaId || "Details");
     }
   }
 }
