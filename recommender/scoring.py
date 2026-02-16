@@ -196,6 +196,91 @@ def _soft_cap(score):
     return 1 - np.exp(-score)
 
 
+def _vector_from_weights(weights, index_map, size):
+    if not weights or not index_map or size <= 0:
+        return np.zeros(size, dtype=float)
+    vec = np.zeros(size, dtype=float)
+    for key, value in weights.items():
+        idx = index_map.get(key)
+        if idx is None:
+            continue
+        try:
+            vec[idx] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return vec
+
+
+def _collect_rated_indices(read_manga, id_index):
+    indices = []
+    ratings = []
+    for manga_id, rating in read_manga.items():
+        idx = id_index.get(manga_id)
+        if idx is None:
+            continue
+        if rating is None:
+            continue
+        try:
+            rating_value = float(rating)
+        except (TypeError, ValueError):
+            continue
+        indices.append(idx)
+        ratings.append(rating_value)
+    return np.array(indices, dtype=int), np.array(ratings, dtype=float)
+
+
+def _compute_rating_affinities_v2_vec(read_manga, precomputed):
+    indices, ratings = _collect_rated_indices(read_manga, precomputed.get("id_index", {}))
+    if indices.size == 0:
+        return np.zeros(len(precomputed["genre_mlb"].classes_), dtype=float), np.zeros(
+            len(precomputed["theme_mlb"].classes_), dtype=float
+        )
+
+    # Drop zero ratings
+    mask = ratings != 0
+    indices = indices[mask]
+    ratings = ratings[mask]
+    if indices.size == 0:
+        return np.zeros(len(precomputed["genre_mlb"].classes_), dtype=float), np.zeros(
+            len(precomputed["theme_mlb"].classes_), dtype=float
+        )
+
+    local_weight = (ratings - 5) / 5
+    local_weight = np.maximum(local_weight, -0.4)
+
+    genre_counts = precomputed["genre_counts"][indices]
+    theme_counts = precomputed["theme_counts"][indices]
+
+    g_weights = local_weight / np.maximum(genre_counts, 1)
+    t_weights = local_weight / np.maximum(theme_counts, 1)
+
+    genre_boost = g_weights @ precomputed["genre_matrix"][indices]
+    theme_boost = t_weights @ precomputed["theme_matrix"][indices]
+
+    def normalize(vec):
+        denom = np.sum(np.abs(vec))
+        if denom <= 0:
+            return np.zeros_like(vec, dtype=float)
+        return vec / denom
+
+    return normalize(genre_boost), normalize(theme_boost)
+
+
+def _apply_earliest_year_bias_vectorized(combined_score, years, earliest_year):
+    if combined_score is None:
+        return combined_score
+    if not earliest_year:
+        return combined_score
+    try:
+        earliest_year = int(earliest_year)
+    except (TypeError, ValueError):
+        return combined_score
+    if years is None:
+        return combined_score
+    gap = earliest_year - years
+    penalty = np.where(np.isfinite(gap) & (gap > 0), np.minimum(0.25, gap * 0.01), 0.0)
+    return combined_score * (1 - penalty)
+
 def _extract_year(text):
     if not text:
         return None
@@ -215,9 +300,16 @@ def _apply_earliest_year_bias(df, earliest_year):
         earliest_year = int(earliest_year)
     except (TypeError, ValueError):
         return df
-    if "publishing_date" not in df.columns:
+    if "published_year" in df.columns:
+        year_series = df["published_year"]
+    elif "publishing_date" in df.columns:
+        year_series = df["publishing_date"]
+    else:
         return df
-    years = df["publishing_date"].apply(_extract_year)
+    years = pd.to_numeric(year_series, errors="coerce")
+    if years.isna().any():
+        extracted = year_series.astype(str).apply(_extract_year)
+        years = years.fillna(extracted)
     def penalty(year):
         if year is None:
             return 0.0
@@ -446,9 +538,179 @@ def score_row_v3(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hi
     return total_score, used_current
 
 
-def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7, diversify=True, novelty=False, personalize=True, earliest_year=None):
+def _score_and_rank_v3_fast(
+    filtered_df,
+    profile,
+    current_genres,
+    current_themes,
+    read_manga,
+    top_n=20,
+    reroll=False,
+    seed=None,
+    pool_multiplier=3,
+    temperature=0.7,
+    diversify=True,
+    novelty=False,
+    personalize=True,
+    earliest_year=None,
+    precomputed=None,
+    prefiltered_idx=None,
+):
+    df = filtered_df.copy()
+    if precomputed is None or prefiltered_idx is None:
+        return df.head(0), False
+
+    row_idx = np.asarray(prefiltered_idx)
+    genre_matrix = precomputed["genre_matrix"][row_idx]
+    theme_matrix = precomputed["theme_matrix"][row_idx]
+    genre_counts = precomputed["genre_counts"][row_idx]
+    theme_counts = precomputed["theme_counts"][row_idx]
+
+    genre_index = precomputed.get("genre_index", {})
+    theme_index = precomputed.get("theme_index", {})
+
+    cur_genre_idx = [genre_index[g] for g in current_genres if g in genre_index]
+    cur_theme_idx = [theme_index[t] for t in current_themes if t in theme_index]
+
+    if cur_genre_idx:
+        cur_genre_hits = genre_matrix[:, cur_genre_idx].sum(axis=1)
+    else:
+        cur_genre_hits = np.zeros(len(df), dtype=float)
+    if cur_theme_idx:
+        cur_theme_hits = theme_matrix[:, cur_theme_idx].sum(axis=1)
+    else:
+        cur_theme_hits = np.zeros(len(df), dtype=float)
+
+    used_current = bool((cur_genre_hits > 0).any() or (cur_theme_hits > 0).any())
+
+    cur_genres_score = cur_genre_hits / max(len(current_genres), 1)
+    cur_themes_score = cur_theme_hits / max(len(current_themes), 1)
+
+    weighted_cur_genres = cur_genres_score * REQUESTED_GENRE_WEIGHT
+    weighted_cur_themes = cur_themes_score * REQUESTED_THEME_WEIGHT
+
+    hist_genres = profile.get("preferred_genres", {}) or {}
+    hist_themes = profile.get("preferred_themes", {}) or {}
+    signal_genres = profile.get("signal_genres", {}) or {}
+    signal_themes = profile.get("signal_themes", {}) or {}
+
+    total_hist_genres = sum(hist_genres.values()) or 1
+    total_hist_themes = sum(hist_themes.values()) or 1
+
+    genre_vec = _vector_from_weights(hist_genres, genre_index, len(precomputed["genre_mlb"].classes_))
+    theme_vec = _vector_from_weights(hist_themes, theme_index, len(precomputed["theme_mlb"].classes_))
+
+    denom_genres = total_hist_genres * np.maximum(genre_counts, 1)
+    denom_themes = total_hist_themes * np.maximum(theme_counts, 1)
+
+    hist_genres_score = (genre_matrix @ genre_vec) / denom_genres
+    hist_themes_score = (theme_matrix @ theme_vec) / denom_themes
+
+    weighted_hist_genres = hist_genres_score * HISTORY_GENRE_WEIGHT
+    weighted_hist_themes = hist_themes_score * HISTORY_THEME_WEIGHT
+
+    genre_affinity, theme_affinity = _compute_rating_affinities_v2_vec(read_manga, precomputed)
+    rating_genre_boost = (genre_matrix @ genre_affinity) / np.maximum(genre_counts, 1)
+    rating_theme_boost = (theme_matrix @ theme_affinity) / np.maximum(theme_counts, 1)
+    rating_genre_boost = np.maximum(rating_genre_boost, -0.2)
+    rating_theme_boost = np.maximum(rating_theme_boost, -0.2)
+
+    weighted_rating_genres = rating_genre_boost * READ_TITLES_GENRE_WEIGHT
+    weighted_rating_themes = rating_theme_boost * READ_TITLES_THEME_WEIGHT
+
+    rated_count = sum(1 for v in read_manga.values() if v is not None)
+    signal_strength = _personalization_strength(rated_count, personalize)
+
+    signal_genre_vec = _vector_from_weights(signal_genres, genre_index, len(precomputed["genre_mlb"].classes_))
+    signal_theme_vec = _vector_from_weights(signal_themes, theme_index, len(precomputed["theme_mlb"].classes_))
+
+    signal_genre_boost = (genre_matrix @ signal_genre_vec) / np.maximum(genre_counts, 1)
+    signal_theme_boost = (theme_matrix @ signal_theme_vec) / np.maximum(theme_counts, 1)
+    signal_genre_boost = np.clip(signal_genre_boost, -0.25, 0.25)
+    signal_theme_boost = np.clip(signal_theme_boost, -0.25, 0.25)
+
+    weighted_signal_genres = signal_genre_boost * SIGNAL_GENRE_WEIGHT * signal_strength
+    weighted_signal_themes = signal_theme_boost * SIGNAL_THEME_WEIGHT * signal_strength
+
+    total_score = (
+        weighted_cur_genres
+        + weighted_cur_themes
+        + weighted_hist_genres
+        + weighted_hist_themes
+        + weighted_rating_genres
+        + weighted_rating_themes
+        + weighted_signal_genres
+        + weighted_signal_themes
+    )
+
+    match_score = _soft_cap(total_score)
+    if not used_current:
+        match_score = match_score * (1 / (1 - (REQUESTED_GENRE_WEIGHT + REQUESTED_THEME_WEIGHT)))
+
+    internal_score = pd.to_numeric(df.get("score", 0), errors="coerce").fillna(0).to_numpy() * 0.1
+    internal_score = np.round(internal_score, 3)
+
+    combined_score = np.where(
+        internal_score > 0,
+        (match_score * MATCH_VS_INTERNAL_WEIGHT) + (internal_score * (1 - MATCH_VS_INTERNAL_WEIGHT)),
+        match_score,
+    )
+
+    years = precomputed.get("published_year")
+    if years is not None:
+        combined_score = _apply_earliest_year_bias_vectorized(combined_score, years[row_idx], earliest_year)
+
+    df["match_score"] = match_score
+    df["internal_score"] = internal_score
+    df["combined_score"] = combined_score
+
+    ranked = df.sort_values("combined_score", ascending=False)
+    if "title_name" in ranked.columns:
+        ranked = ranked.drop_duplicates(subset=["title_name"], keep="first")
+    elif "id" in ranked.columns:
+        ranked = ranked.drop_duplicates(subset=["id"], keep="first")
+
+    if novelty:
+        ranked = _apply_novelty(ranked, NOVELTY_WEIGHT)
+
+    if reroll:
+        candidates, anchors = _reroll_candidates(ranked, top_n, pool_multiplier=pool_multiplier, temperature=temperature, seed=seed)
+        if diversify:
+            ranked = _select_diverse(candidates, top_n, required=anchors)
+        else:
+            ranked = _weighted_sample(candidates, min(top_n, len(candidates)), temperature=temperature, seed=seed)
+    else:
+        if diversify:
+            ranked = _select_diverse(ranked, top_n)
+        else:
+            ranked = ranked.head(top_n)
+
+    return ranked, used_current
+
+
+def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7, diversify=True, novelty=False, personalize=True, earliest_year=None, precomputed=None, prefiltered_idx=None):
     df = filtered_df.copy()
     used_current = False
+
+    if precomputed is not None and prefiltered_idx is not None:
+        return _score_and_rank_v3_fast(
+            filtered_df,
+            profile,
+            current_genres,
+            current_themes,
+            read_manga,
+            top_n=top_n,
+            reroll=reroll,
+            seed=seed,
+            pool_multiplier=pool_multiplier,
+            temperature=temperature,
+            diversify=diversify,
+            novelty=novelty,
+            personalize=personalize,
+            earliest_year=earliest_year,
+            precomputed=precomputed,
+            prefiltered_idx=prefiltered_idx,
+        )
 
     cur_genres = set(current_genres)
     cur_themes = set(current_themes)

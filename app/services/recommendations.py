@@ -1,7 +1,10 @@
 import os
 import sqlite3
+import time
 
+import numpy as np
 import pandas as pd
+from sklearn.preprocessing import MultiLabelBinarizer
 
 from app.repos import profile as profile_repo
 from app.repos import ratings as ratings_repo
@@ -201,10 +204,17 @@ def _resolve_db_path(db_path):
     return os.path.join(base_dir, "data", "db", "manga.db")
 
 
+def _extract_year_series(series):
+    if series is None:
+        return pd.Series(dtype="float")
+    year = pd.to_numeric(series, errors="coerce")
+    if year.isna().any():
+        year_text = series.astype(str).str.extract(r"(19\d{2}|20\d{2})", expand=False)
+        year = year.fillna(pd.to_numeric(year_text, errors="coerce"))
+    return year
+
+
 def _load_manga_df(db_path):
-    cached = _MANGA_CACHE.get(db_path)
-    if cached is not None:
-        return cached
     conn = sqlite3.connect(db_path)
     try:
         df = pd.read_sql_query(
@@ -246,8 +256,95 @@ def _load_manga_df(db_path):
         )
     finally:
         conn.close()
-    _MANGA_CACHE[db_path] = df
+
+    # Pre-parse lists once per dataset load
+    df["genres"] = df["genres"].apply(parse_list)
+    df["themes"] = df["themes"].apply(parse_list)
+
+    # Precompute published year with fallback to updated_at
+    publish_year = _extract_year_series(df.get("publishing_date"))
+    update_year = _extract_year_series(df.get("updated_at"))
+    df["published_year"] = publish_year.fillna(update_year)
+
     return df
+
+
+def _build_cache(db_path):
+    df = _load_manga_df(db_path)
+    df = df.reset_index(drop=True)
+
+    genre_mlb = MultiLabelBinarizer()
+    theme_mlb = MultiLabelBinarizer()
+
+    genre_matrix = genre_mlb.fit_transform(df["genres"]).astype(np.uint8)
+    theme_matrix = theme_mlb.fit_transform(df["themes"]).astype(np.uint8)
+
+    genre_index = {g: i for i, g in enumerate(genre_mlb.classes_.tolist())}
+    theme_index = {t: i for i, t in enumerate(theme_mlb.classes_.tolist())}
+
+    genre_counts = genre_matrix.sum(axis=1)
+    theme_counts = theme_matrix.sum(axis=1)
+
+    id_index = {mid: idx for idx, mid in enumerate(df["id"].tolist())}
+    id_to_mal = {mid: mal for mid, mal in zip(df["id"].tolist(), df["mal_id"].tolist())}
+
+    mal_id_to_indices = {}
+    for idx, mal_id in enumerate(df["mal_id"].tolist()):
+        if mal_id is None or mal_id != mal_id:
+            continue
+        try:
+            key = int(mal_id)
+        except Exception:
+            continue
+        mal_id_to_indices.setdefault(key, []).append(idx)
+
+    content_rating = df.get("content_rating")
+    if content_rating is None:
+        content_rating = pd.Series([""] * len(df))
+    content_rating = content_rating.fillna("").astype(str).str.lower().to_numpy()
+
+    nsfw_genres = [g for g in ("Hentai", "Ecchi", "Erotica") if g in genre_mlb.classes_]
+    nsfw_mask = np.zeros(len(df), dtype=bool)
+    if nsfw_genres:
+        idxs = [genre_mlb.classes_.tolist().index(g) for g in nsfw_genres]
+        nsfw_mask = np.any(genre_matrix[:, idxs] > 0, axis=1)
+    nsfw_mask = nsfw_mask | np.isin(content_rating, ["erotica", "pornographic"])
+
+    return {
+        "df": df,
+        "genre_mlb": genre_mlb,
+        "theme_mlb": theme_mlb,
+        "genre_index": genre_index,
+        "theme_index": theme_index,
+        "genre_matrix": genre_matrix,
+        "theme_matrix": theme_matrix,
+        "genre_counts": genre_counts,
+        "theme_counts": theme_counts,
+        "id_index": id_index,
+        "id_to_mal": id_to_mal,
+        "mal_id_to_indices": mal_id_to_indices,
+        "published_year": df["published_year"].to_numpy(),
+        "item_type": df.get("item_type").fillna("").astype(str).to_numpy(),
+        "nsfw_mask": nsfw_mask,
+    }
+
+
+def _get_cache(db_path):
+    db_path = _resolve_db_path(db_path)
+    cache_ttl = int(os.environ.get("MANGA_CACHE_TTL_SEC", "21600"))
+    now = time.time()
+    cached = _MANGA_CACHE.get(db_path)
+    if cached is not None and cache_ttl > 0:
+        built_at = cached.get("built_at") or 0
+        if (now - built_at) < cache_ttl:
+            return cached
+    elif cached is not None and cache_ttl <= 0:
+        return cached
+    _OPTIONS_CACHE.pop(db_path, None)
+    cache = _build_cache(db_path)
+    cache["built_at"] = now
+    _MANGA_CACHE[db_path] = cache
+    return cache
 
 
 def get_available_options(db_path=None):
@@ -255,7 +352,8 @@ def get_available_options(db_path=None):
     cached = _OPTIONS_CACHE.get(db_path)
     if cached is not None:
         return cached
-    manga_df = _load_manga_df(db_path)
+    cache = _get_cache(db_path)
+    manga_df = cache["df"]
     genres = get_all_unique(manga_df, "genres")
     themes = get_all_unique(manga_df, "themes")
     _OPTIONS_CACHE[db_path] = (genres, themes)
@@ -269,22 +367,20 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
     if not profile:
         return [], False
 
+    cache = _get_cache(db_path)
+    manga_df = cache["df"]
+
     history_blacklist_genres = list((profile.get("blacklist_genres") or {}).keys())
     history_blacklist_themes = list((profile.get("blacklist_themes") or {}).keys())
     combined_blacklist_genres = list(dict.fromkeys((blacklist_genres or []) + history_blacklist_genres))
     combined_blacklist_themes = list(dict.fromkeys((blacklist_themes or []) + history_blacklist_themes))
 
     read_manga = ratings_repo.list_ratings_map(user_id)
-    manga_df = _load_manga_df(db_path)
 
     rated_mal_ids = set()
     if read_manga:
         # Resolve rated MAL ids to block alternate variants from showing up
-        id_to_mal = {}
-        try:
-            id_to_mal = dict(zip(manga_df["id"], manga_df["mal_id"]))
-        except Exception:
-            id_to_mal = {}
+        id_to_mal = cache.get("id_to_mal", {})
         for key in read_manga.keys():
             if not key:
                 continue
@@ -301,18 +397,69 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
                 except Exception:
                     pass
         if rated_mal_ids:
-            try:
-                related_ids = manga_df[manga_df["mal_id"].isin(rated_mal_ids)]["id"].dropna().tolist()
-                for rid in related_ids:
-                    read_manga.setdefault(rid, None)
-            except Exception:
-                pass
+            for mid in rated_mal_ids:
+                for idx in cache.get("mal_id_to_indices", {}).get(mid, []):
+                    try:
+                        rid = manga_df.at[idx, "id"]
+                    except Exception:
+                        continue
+                    if rid:
+                        read_manga.setdefault(rid, None)
 
     dnr_ids = set(dnr_service.list_manga_ids(user_id))
     reading_ids = set(reading_list_service.list_manga_ids(user_id))
-    exclude_ids = dnr_ids | reading_ids
-    if exclude_ids:
-        manga_df = manga_df[~manga_df["id"].isin(exclude_ids)]
+
+    total_rows = len(manga_df)
+    mask = np.ones(total_rows, dtype=bool)
+
+    # Age-based NSFW filtering
+    if profile.get("age") is not None and profile["age"] < 18:
+        mask &= ~cache.get("nsfw_mask", np.zeros(total_rows, dtype=bool))
+
+    # Content type filtering
+    if content_types:
+        allowed = {str(t).strip() for t in content_types if str(t).strip()}
+        if allowed:
+            mask &= np.isin(cache.get("item_type"), list(allowed))
+
+    # Blacklist filtering (genres/themes)
+    blacklist_genres = [g for g in (combined_blacklist_genres or []) if g]
+    blacklist_themes = [t for t in (combined_blacklist_themes or []) if t]
+    if blacklist_genres:
+        genre_index = cache.get("genre_index", {})
+        idxs = [genre_index[g] for g in blacklist_genres if g in genre_index]
+        if idxs:
+            mask &= ~np.any(cache["genre_matrix"][:, idxs] > 0, axis=1)
+    if blacklist_themes:
+        theme_index = cache.get("theme_index", {})
+        idxs = [theme_index[t] for t in blacklist_themes if t in theme_index]
+        if idxs:
+            mask &= ~np.any(cache["theme_matrix"][:, idxs] > 0, axis=1)
+
+    # Exclude read/DNR/reading list
+    exclude_ids = dnr_ids | reading_ids | set(read_manga.keys())
+    id_index = cache.get("id_index", {})
+    for mid in exclude_ids:
+        idx = id_index.get(mid)
+        if idx is not None:
+            mask[idx] = False
+
+    # Earliest year preference (filter if enough candidates remain)
+    min_year = None
+    try:
+        min_year = int(earliest_year) if earliest_year is not None else None
+    except (TypeError, ValueError):
+        min_year = None
+    if min_year:
+        years = cache.get("published_year")
+        if years is not None:
+            year_mask = years >= min_year
+            if year_mask.sum() >= max(limit * 5, 200):
+                mask &= year_mask
+        earliest_year = min_year
+
+    row_idx = np.where(mask)[0]
+    filtered_df = manga_df.iloc[row_idx].copy()
 
     ranked, used_current = recommendation_scores(
         manga_df,
@@ -331,6 +478,9 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
         content_types=content_types,
         blacklist_genres=combined_blacklist_genres,
         blacklist_themes=combined_blacklist_themes,
+        prefiltered_df=filtered_df,
+        prefiltered_idx=row_idx,
+        precomputed=cache,
     )
 
     if ranked is None or ranked.empty:
