@@ -1,3 +1,5 @@
+"""Migration script that backfills canonical ids and deduplicates user tables."""
+
 import ast
 import re
 import sqlite3
@@ -8,6 +10,7 @@ UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 
 
 def ensure_columns(conn, table):
+    """Ensure columns exists before continuing."""
     cur = conn.execute(f"PRAGMA table_info({table})")
     cols = {row[1] for row in cur.fetchall()}
     if "mal_id" not in cols:
@@ -86,6 +89,7 @@ def backfill_table(conn, table):
 
 
 def normalize_title(value):
+    """Normalize title for consistent comparisons."""
     if not value:
         return ""
     value = str(value).lower().strip()
@@ -94,6 +98,7 @@ def normalize_title(value):
 
 
 def normalize_item_type(value):
+    """Normalize item type for consistent comparisons."""
     if not value:
         return None
     text = str(value).strip().lower()
@@ -106,6 +111,7 @@ def normalize_item_type(value):
 
 
 def parse_list(value):
+    """Parse list into normalized data."""
     if not value:
         return []
     if isinstance(value, list):
@@ -121,6 +127,7 @@ def parse_list(value):
 
 
 def build_title_index(conn):
+    """Build title index for later use."""
     cur = conn.execute(
         """
         SELECT mal_id, title_name, english_name, japanese_name, synonymns, item_type
@@ -170,6 +177,7 @@ def build_title_index(conn):
 
 
 def pick_best(candidates, stats):
+    """Handle pick best for this module."""
     best = None
     best_key = None
     for mal_id in candidates:
@@ -187,6 +195,7 @@ def pick_best(candidates, stats):
 
 
 def fallback_match(manga_id, index, stats):
+    """Handle fallback match for this module."""
     key = normalize_title(manga_id)
     if not key:
         return None
@@ -212,6 +221,7 @@ def fallback_match(manga_id, index, stats):
 
 
 def backfill_table_fuzzy(conn, table, index, stats):
+    """Backfill missing table fuzzy using existing mappings."""
     cur = conn.execute(
         f"SELECT rowid, manga_id, mdex_id FROM {table} WHERE mal_id IS NULL"
     )
@@ -234,6 +244,7 @@ def backfill_table_fuzzy(conn, table, index, stats):
 
 
 def fill_missing_mdex(conn, table):
+    """Handle fill missing mdex for this module."""
     cur = conn.execute(
         f"SELECT rowid, mal_id FROM {table} WHERE mdex_id IS NULL AND mal_id IS NOT NULL"
     )
@@ -347,6 +358,7 @@ def repair_mal_ids(conn, table):
 
 
 def report_unmatched(conn, table):
+    """Handle report unmatched for this module."""
     cur = conn.execute(
         f"""
         SELECT COUNT(*)
@@ -358,10 +370,12 @@ def report_unmatched(conn, table):
 
 
 def _canonical_key(row):
+    """Handle canonical key for this module."""
     return row["canonical_id"] or row["mdex_id"] or row["manga_id"]
 
 
 def _derive_mal_id(conn, canonical_id, mdex_id, mal_id):
+    """Handle derive mal id for this module."""
     if mal_id:
         return mal_id
     candidate = canonical_id or mdex_id
@@ -381,6 +395,7 @@ def _derive_mal_id(conn, canonical_id, mdex_id, mal_id):
 
 
 def dedupe_ratings(conn):
+    """Deduplicate rows in ratings and keep the best record."""
     rows = conn.execute(
         """
         SELECT rowid, user_id, manga_id, canonical_id, mdex_id, mal_id,
@@ -401,6 +416,7 @@ def dedupe_ratings(conn):
             continue
 
         def sort_key(r):
+            """Handle sort key for this module."""
             rating_present = 1 if r["rating"] is not None else 0
             created = r["created_at"] or ""
             return (rating_present, created, r["finished_reading"] or 0, r["recommended_by_us"] or 0, r["rowid"])
@@ -442,6 +458,7 @@ def dedupe_ratings(conn):
 
 
 def dedupe_dnr(conn):
+    """Deduplicate rows in dnr and keep the best record."""
     rows = conn.execute(
         """
         SELECT rowid, user_id, manga_id, canonical_id, mdex_id, mal_id, created_at
@@ -483,6 +500,7 @@ def dedupe_dnr(conn):
 
 
 def dedupe_reading_list(conn):
+    """Deduplicate rows in reading list and keep the best record."""
     rows = conn.execute(
         """
         SELECT rowid, user_id, manga_id, canonical_id, mdex_id, mal_id, status, created_at
@@ -533,6 +551,7 @@ def dedupe_reading_list(conn):
 
 
 def main():
+    """Run the script entrypoint."""
     if not Path(DB_PATH).exists():
         raise SystemExit(f"DB not found: {DB_PATH}")
 

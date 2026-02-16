@@ -1,3 +1,5 @@
+"""Scoring and ranking strategies for recommendation models."""
+
 import pandas as pd
 import numpy as np
 import re
@@ -20,6 +22,7 @@ from recommender.constants import (
 
 def compute_rating_affinities(manga_df, read_manga):
     
+    """Handle compute rating affinities for this module."""
     genre_boost = {}
     theme_boost = {}
     rated_count = 0
@@ -102,6 +105,7 @@ def score_row(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hist_
     
 def combine_scores(match_score, internal_score):
     
+    """Combine scores into one value."""
     if internal_score > 0:
         return (
             (match_score * MATCH_VS_INTERNAL_WEIGHT)
@@ -113,6 +117,7 @@ def combine_scores(match_score, internal_score):
 
 
 def compute_rating_affinities_v2(manga_df, read_manga):
+    """Handle compute rating affinities v2 for this module."""
     genre_boost = {}
     theme_boost = {}
 
@@ -150,6 +155,7 @@ def compute_rating_affinities_v2(manga_df, read_manga):
                 theme_boost[t] = theme_boost.get(t, 0) + per_t
 
     def normalize(weights):
+        """Normalize values for consistent comparisons."""
         denom = sum(abs(v) for v in weights.values())
         if denom <= 0:
             return {}
@@ -159,6 +165,7 @@ def compute_rating_affinities_v2(manga_df, read_manga):
 
 
 def _minmax(series):
+    """Handle minmax for this module."""
     if series.empty:
         return series
     min_v = series.min()
@@ -169,6 +176,7 @@ def _minmax(series):
 
 
 def _series_key(title):
+    """Handle series key for this module."""
     if not title:
         return ""
     text = str(title).lower()
@@ -179,6 +187,7 @@ def _series_key(title):
 
 
 def _personalization_strength(rated_count, enabled=True):
+    """Handle personalization strength for this module."""
     if not enabled:
         return 0.0
     if rated_count is None:
@@ -197,6 +206,7 @@ def _soft_cap(score):
 
 
 def _vector_from_weights(weights, index_map, size):
+    """Handle vector from weights for this module."""
     if not weights or not index_map or size <= 0:
         return np.zeros(size, dtype=float)
     vec = np.zeros(size, dtype=float)
@@ -212,6 +222,7 @@ def _vector_from_weights(weights, index_map, size):
 
 
 def _collect_rated_indices(read_manga, id_index):
+    """Handle collect rated indices for this module."""
     indices = []
     ratings = []
     for manga_id, rating in read_manga.items():
@@ -230,6 +241,7 @@ def _collect_rated_indices(read_manga, id_index):
 
 
 def _compute_rating_affinities_v2_vec(read_manga, precomputed):
+    """Handle compute rating affinities v2 vec for this module."""
     indices, ratings = _collect_rated_indices(read_manga, precomputed.get("id_index", {}))
     if indices.size == 0:
         return np.zeros(len(precomputed["genre_mlb"].classes_), dtype=float), np.zeros(
@@ -258,6 +270,7 @@ def _compute_rating_affinities_v2_vec(read_manga, precomputed):
     theme_boost = t_weights @ precomputed["theme_matrix"][indices]
 
     def normalize(vec):
+        """Normalize values for consistent comparisons."""
         denom = np.sum(np.abs(vec))
         if denom <= 0:
             return np.zeros_like(vec, dtype=float)
@@ -267,6 +280,7 @@ def _compute_rating_affinities_v2_vec(read_manga, precomputed):
 
 
 def _apply_earliest_year_bias_vectorized(combined_score, years, earliest_year):
+    """Handle apply earliest year bias vectorized for this module."""
     if combined_score is None:
         return combined_score
     if not earliest_year:
@@ -282,6 +296,7 @@ def _apply_earliest_year_bias_vectorized(combined_score, years, earliest_year):
     return combined_score * (1 - penalty)
 
 def _extract_year(text):
+    """Handle extract year for this module."""
     if not text:
         return None
     match = re.search(r"(19\\d{2}|20\\d{2})", str(text))
@@ -294,6 +309,7 @@ def _extract_year(text):
 
 
 def _apply_earliest_year_bias(df, earliest_year):
+    """Handle apply earliest year bias for this module."""
     if not earliest_year:
         return df
     try:
@@ -311,6 +327,7 @@ def _apply_earliest_year_bias(df, earliest_year):
         extracted = year_series.astype(str).apply(_extract_year)
         years = years.fillna(extracted)
     def penalty(year):
+        """Handle penalty for this module."""
         if year is None:
             return 0.0
         if year >= earliest_year:
@@ -323,6 +340,7 @@ def _apply_earliest_year_bias(df, earliest_year):
 
 
 def _apply_novelty(df, weight=NOVELTY_WEIGHT):
+    """Handle apply novelty for this module."""
     if weight <= 0:
         return df
     novelty = None
@@ -343,6 +361,7 @@ def _apply_novelty(df, weight=NOVELTY_WEIGHT):
 
 
 def _weighted_sample(df, n, temperature=0.7, seed=None):
+    """Handle weighted sample for this module."""
     if n <= 0 or df.empty:
         return df.head(0)
     scores = df["combined_score"].astype(float)
@@ -356,6 +375,7 @@ def _weighted_sample(df, n, temperature=0.7, seed=None):
 
 
 def _reroll_candidates(ranked, top_n, pool_multiplier=3, temperature=0.7, seed=None):
+    """Handle reroll candidates for this module."""
     if ranked.empty or len(ranked) <= top_n:
         return ranked, ranked.head(0)
     pool_size = min(len(ranked), max(top_n, top_n * pool_multiplier))
@@ -371,6 +391,7 @@ def _reroll_candidates(ranked, top_n, pool_multiplier=3, temperature=0.7, seed=N
 
 
 def _select_diverse(df, top_n, required=None):
+    """Handle select diverse for this module."""
     if df.empty:
         return df
     max_genre = max(3, top_n // 3)
@@ -383,6 +404,7 @@ def _select_diverse(df, top_n, required=None):
     fallback = []
 
     def add_row(idx, row, force=False):
+        """Add row to storage."""
         if idx in seen_idx:
             return False
         title = row.get("title_name") or row.get("title") or row.get("english_name") or ""
@@ -431,6 +453,7 @@ def _select_diverse(df, top_n, required=None):
 
 
 def score_row_v2(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hist_genres, total_hist_themes, genre_affinity, theme_affinity, signal_genres, signal_themes, signal_strength):
+    """Compute row v2 for ranking."""
     used_current = False
     genres = set(row["genres"])
     themes = set(row["themes"])
@@ -486,6 +509,7 @@ def score_row_v2(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hi
 
 
 def score_row_v3(row, cur_genres, cur_themes, hist_genres, hist_themes, total_hist_genres, total_hist_themes, genre_affinity, theme_affinity, signal_genres, signal_themes, signal_strength):
+    """Compute row v3 for ranking."""
     used_current = False
     genres = set(row["genres"])
     themes = set(row["themes"])
@@ -556,6 +580,7 @@ def _score_and_rank_v3_fast(
     precomputed=None,
     prefiltered_idx=None,
 ):
+    """Compute and rank v3 fast for ranking."""
     df = filtered_df.copy()
     if precomputed is None or prefiltered_idx is None:
         return df.head(0), False
@@ -689,6 +714,7 @@ def _score_and_rank_v3_fast(
 
 
 def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7, diversify=True, novelty=False, personalize=True, earliest_year=None, precomputed=None, prefiltered_idx=None):
+    """Compute and rank v3 for ranking."""
     df = filtered_df.copy()
     used_current = False
 
@@ -793,6 +819,7 @@ def score_and_rank_v3(filtered_df, manga_df, profile, current_genres, current_th
     return ranked, used_current
 
 def score_and_rank_v2(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7, diversify=True, novelty=False, personalize=True, earliest_year=None):
+    """Compute and rank v2 for ranking."""
     df = filtered_df.copy()
     used_current = False
 
@@ -869,6 +896,7 @@ def score_and_rank_v2(filtered_df, manga_df, profile, current_genres, current_th
     return ranked, used_current
 
 def score_and_rank(filtered_df, manga_df, profile, current_genres, current_themes, read_manga, top_n=20, reroll=False, seed=None, pool_multiplier=3, temperature=0.7, diversify=True, novelty=False, personalize=True, earliest_year=None):
+    """Compute and rank for ranking."""
     df = filtered_df.copy()
     used_current = False
 

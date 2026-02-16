@@ -1,10 +1,14 @@
+// Client-side behavior for common.js.
+
 const BASE_PATH = window.BASE_PATH || ""; // injected by templates
 
+// Withbase helper for this page.
 function withBase(path) {
   if (!path.startsWith("/")) return `${BASE_PATH}/${path}`;
   return `${BASE_PATH}${path}`;
 }
 
+// Api helper for this page.
 async function api(path, options = {}) {
   const url = withBase(path);
   const res = await fetch(url, {
@@ -22,6 +26,7 @@ async function api(path, options = {}) {
 
 
 let toastTimer;
+// Showtoast helper for this page.
 function showToast(message, timeout = 2200) {
   if (!message) return;
   let el = document.getElementById("toast");
@@ -39,6 +44,7 @@ function showToast(message, timeout = 2200) {
   }, timeout);
 }
 
+// Load NavUser and update the UI.
 async function loadNavUser() {
   const el = document.getElementById("nav-user");
   if (!el) return;
@@ -58,6 +64,7 @@ async function loadNavUser() {
 
 loadNavUser();
 
+// Escapehtml helper for this page.
 function escapeHtml(value) {
   if (value === null || value === undefined) return "";
   return String(value)
@@ -68,6 +75,7 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+// Parselistfield helper for this page.
 function parseListField(value) {
   if (!value) return [];
   if (Array.isArray(value)) return value;
@@ -86,6 +94,7 @@ function parseListField(value) {
   return [];
 }
 
+// Parsejsonfield helper for this page.
 function parseJsonField(value) {
   if (!value) return null;
   if (typeof value === "object") return value;
@@ -101,6 +110,7 @@ function parseJsonField(value) {
   return null;
 }
 
+// Serieskey helper for this page.
 function seriesKey(title) {
   if (!title) return "";
   let text = String(title).toLowerCase();
@@ -110,6 +120,7 @@ function seriesKey(title) {
   return text;
 }
 
+// Collapsebymalid helper for this page.
 function collapseByMalId(items) {
   if (!Array.isArray(items)) return [];
   const seen = new Set();
@@ -136,6 +147,7 @@ function collapseByMalId(items) {
   return result;
 }
 
+// Formatlanguage helper for this page.
 function formatLanguage(code) {
   if (!code) return "";
   const map = {
@@ -149,12 +161,14 @@ function formatLanguage(code) {
   return map[code] || code;
 }
 
+// Formatdate helper for this page.
 function formatDate(value) {
   if (!value) return "";
   const text = String(value);
   return text.split("T")[0];
 }
 
+// Render Chips into the page.
 function renderChips(items) {
   let cleaned = items;
   if (!Array.isArray(cleaned)) {
@@ -172,6 +186,7 @@ function renderChips(items) {
   return `<div class="details-chips">${html}</div>`;
 }
 
+// Render DetailsHTML into the page.
 function renderDetailsHTML(item) {
   try {
     if (!item) return "<div class='details-box'><div class='muted'>No details available.</div></div>";
@@ -275,6 +290,7 @@ let detailsModalTitle;
 let detailsModalContent;
 let detailsModalClose;
 
+// Ensuredetailsmodal helper for this page.
 function ensureDetailsModal() {
   if (detailsModal) return;
   detailsModal = document.getElementById("details-modal");
@@ -305,6 +321,7 @@ function ensureDetailsModal() {
   });
 }
 
+// Opendetailsmodal helper for this page.
 function openDetailsModal(html, title) {
   ensureDetailsModal();
   if (detailsModalTitle) detailsModalTitle.textContent = title || "Details";

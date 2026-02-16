@@ -1,3 +1,5 @@
+"""Ratings service logic with validation and cross-list consistency."""
+
 from app.repos import ratings as ratings_repo
 from app.repos import manga as manga_repo
 from app.repos import dnr as dnr_repo
@@ -5,18 +7,22 @@ from app.repos import reading_list as reading_list_repo
 
 
 def _normalize(username):
+    """Normalize values for consistent comparisons."""
     return (username or "").strip().lower()
 
 
 def list_ratings(user_id, sort="chron"):
+    """Return ratings for the current context."""
     return ratings_repo.list_by_user(_normalize(user_id), sort=sort)
 
 
 def list_ratings_map(user_id):
+    """Return ratings map for the current context."""
     return ratings_repo.list_ratings_map(_normalize(user_id))
 
 
 def set_rating(user_id, manga_id, rating, recommended_by_us=None, finished_reading=None):
+    """Persist rating."""
     user_id = _normalize(user_id)
     if not manga_id:
         return "manga_id is required"
@@ -67,6 +73,7 @@ def set_rating(user_id, manga_id, rating, recommended_by_us=None, finished_readi
 
 
 def delete_rating(user_id, manga_id):
+    """Delete rating."""
     user_id = _normalize(user_id)
     if not manga_id:
         return "manga_id is required"

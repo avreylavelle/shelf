@@ -1,3 +1,5 @@
+"""Filtering pipeline used before ranking recommendations."""
+
 from utils.parsing import parse_list
 
 
@@ -15,6 +17,7 @@ def filter_nsfw(df, profile):
     return df
 
 def parse_lists(df):
+    """Parse lists into normalized data."""
     df = df.copy()
 
     # Turn the genres and themes into python lists
@@ -33,6 +36,7 @@ def filter_already_read(df, read_manga):
     return df
 
 def filter_item_type(df, content_types=None):
+    """Filter rows using item type."""
     if not content_types:
         return df
     allowed = {str(t).strip() for t in content_types if str(t).strip()}
@@ -44,6 +48,7 @@ def filter_item_type(df, content_types=None):
     return df[df["item_type"].isin(allowed)]
 
 def filter_blacklist(df, blacklist_genres=None, blacklist_themes=None):
+    """Filter rows using blacklist."""
     blacklist_genres = [g for g in (blacklist_genres or []) if g]
     blacklist_themes = [t for t in (blacklist_themes or []) if t]
     if blacklist_genres:

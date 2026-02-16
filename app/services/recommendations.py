@@ -1,3 +1,5 @@
+"""Recommendation orchestration, caching, filtering, and response shaping."""
+
 import os
 import sqlite3
 import time
@@ -21,6 +23,7 @@ _STATS_NAME_CACHE = {}
 
 
 def _english_like(value):
+    """Handle english like for this module."""
     if not value:
         return False
     latin = 0
@@ -35,6 +38,7 @@ def _english_like(value):
 
 
 def _stats_english_name(mal_id):
+    """Handle stats english name for this module."""
     if not mal_id:
         return None
     try:
@@ -56,6 +60,7 @@ def _stats_english_name(mal_id):
 
 
 def _best_synonym(row, title):
+    """Handle best synonym for this module."""
     synonyms = parse_list(row.get("synonymns"))
     if not synonyms:
         return None
@@ -71,6 +76,7 @@ def _best_synonym(row, title):
 
 
 def _display_title_for_row(row, language):
+    """Handle display title for row for this module."""
     title = row.get("title_name") or row.get("english_name") or row.get("japanese_name") or ""
     if language == "Japanese":
         return row.get("japanese_name") or title
@@ -87,6 +93,7 @@ def _display_title_for_row(row, language):
 
 
 def _build_rated_lookup(manga_df, read_manga, language):
+    """Build rated lookup for later use."""
     if manga_df is None or manga_df.empty or not read_manga:
         return {}, {}
     genre_best = {}
@@ -122,6 +129,7 @@ def _build_rated_lookup(manga_df, read_manga, language):
 
 
 def _explain_row(row, current_genres, current_themes, profile, genre_best, theme_best):
+    """Handle explain row for this module."""
     reasons = []
     row_genres = set(row.get("genres") or [])
     row_themes = set(row.get("themes") or [])
@@ -165,6 +173,7 @@ def _explain_row(row, current_genres, current_themes, profile, genre_best, theme
 
 
 def _diversify_reasons(results, max_title_reasons=2):
+    """Handle diversify reasons for this module."""
     if not results:
         return results
     used_titles = {}
@@ -194,6 +203,7 @@ def _diversify_reasons(results, max_title_reasons=2):
 
 
 def _resolve_db_path(db_path):
+    """Resolve db path into a canonical form."""
     if db_path:
         db_path = os.path.expandvars(os.path.expanduser(db_path))
         if not os.path.isabs(db_path):
@@ -205,6 +215,7 @@ def _resolve_db_path(db_path):
 
 
 def _extract_year_series(series):
+    """Handle extract year series for this module."""
     if series is None:
         return pd.Series(dtype="float")
     year = pd.to_numeric(series, errors="coerce")
@@ -215,6 +226,7 @@ def _extract_year_series(series):
 
 
 def _load_manga_df(db_path):
+    """Handle load manga df for this module."""
     conn = sqlite3.connect(db_path)
     try:
         df = pd.read_sql_query(
@@ -270,6 +282,7 @@ def _load_manga_df(db_path):
 
 
 def _build_cache(db_path):
+    """Build cache for later use."""
     df = _load_manga_df(db_path)
     df = df.reset_index(drop=True)
 
@@ -330,6 +343,7 @@ def _build_cache(db_path):
 
 
 def _get_cache(db_path):
+    """Return cache."""
     db_path = _resolve_db_path(db_path)
     cache_ttl = int(os.environ.get("MANGA_CACHE_TTL_SEC", "21600"))
     now = time.time()
@@ -348,6 +362,7 @@ def _get_cache(db_path):
 
 
 def get_available_options(db_path=None):
+    """Return available options."""
     db_path = _resolve_db_path(db_path)
     cached = _OPTIONS_CACHE.get(db_path)
     if cached is not None:
@@ -361,6 +376,7 @@ def get_available_options(db_path=None):
 
 
 def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=20, mode=None, reroll=False, seed=None, diversify=True, novelty=False, personalize=True, earliest_year=None, content_types=None, blacklist_genres=None, blacklist_themes=None):
+    """Compute recommendation results for the requested user context."""
     db_path = _resolve_db_path(db_path)
     mode = (mode or os.environ.get("RECOMMENDER_MODE", "v3")).lower()
     profile = profile_repo.get_profile(user_id)

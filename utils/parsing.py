@@ -1,7 +1,10 @@
+"""Safe parsing helpers for list/dict values read from storage."""
+
 import ast
 import pandas as pd
 # Parse lists from the dataset into python lists
 def parse_list(val):
+    """Parse list into normalized data."""
     if isinstance(val, str): # if its a string
         try:
             return ast.literal_eval(val) # return it

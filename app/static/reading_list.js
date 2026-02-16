@@ -1,3 +1,5 @@
+// Client-side behavior for reading_list.js.
+
 const readingList = document.getElementById("reading-list");
 const readingSort = document.getElementById("reading-sort");
 const readingFilter = document.getElementById("reading-filter");
@@ -20,6 +22,7 @@ const rateModalClose = document.getElementById("rate-modal-close");
 
 const LEGACY_DEFAULT_TYPES = new Set(["Manga", "Manhwa", "Manhua"]);
 
+// Openratemodal helper for this page.
 function openRateModal(mangaId, displayTitle) {
   if (!rateModal) return;
   rateModal.dataset.id = mangaId;
@@ -32,6 +35,7 @@ function openRateModal(mangaId, displayTitle) {
   rateModal.showModal();
 }
 
+// Closeratemodal helper for this page.
 function closeRateModal() {
   if (!rateModal) return;
   rateModal.close();
@@ -39,6 +43,7 @@ function closeRateModal() {
 
 
 
+// Load UiPrefs and update the UI.
 async function loadUiPrefs() {
   try {
     const data = await api("/api/ui-prefs");
@@ -67,6 +72,7 @@ async function loadUiPrefs() {
   }
 }
 
+// Saveuipref helper for this page.
 async function saveUiPref(key, value) {
   try {
     await api("/api/ui-prefs", {
@@ -80,10 +86,12 @@ const state = {
   items: [],
 };
 
+// Selectedtypes helper for this page.
 function selectedTypes() {
   return typeOptions.filter((opt) => opt.checked).map((opt) => opt.value);
 }
 
+// Set DefaultTypes and keep the UI in sync.
 function setDefaultTypes() {
   if (!typeOptions.length) return;
   typeOptions.forEach((opt) => {
@@ -91,6 +99,7 @@ function setDefaultTypes() {
   });
 }
 
+// Applylegacydefaulttypes helper for this page.
 function applyLegacyDefaultTypes(desired) {
   if (!desired || !typeOptions.length) return false;
   if (desired.size !== LEGACY_DEFAULT_TYPES.size) return false;
@@ -103,15 +112,18 @@ function applyLegacyDefaultTypes(desired) {
   return true;
 }
 
+// Selectedtypeset helper for this page.
 function selectedTypeSet() {
   const selected = selectedTypes();
   return selected.length ? new Set(selected) : null;
 }
 
+// Normalizestatus helper for this page.
 function normalizeStatus(status) {
   return status || "Plan to Read";
 }
 
+// Filterreadingitems helper for this page.
 function filterReadingItems(items) {
   const query = (readingFilter && readingFilter.value.trim().toLowerCase()) || "";
   const statusFilter = (readingStatusFilter && readingStatusFilter.value) || "";
@@ -126,6 +138,7 @@ function filterReadingItems(items) {
   });
 }
 
+// Render ReadingList into the page.
 function renderReadingList(items) {
   if (!readingList) return;
   if (!items.length) {
@@ -163,6 +176,7 @@ function renderReadingList(items) {
     .join("");
 }
 
+// Handle Details events.
 async function handleDetails(mangaId, title) {
   api("/api/events", {
     method: "POST",
@@ -175,6 +189,7 @@ async function handleDetails(mangaId, title) {
   }
 }
 
+// Load ReadingList and update the UI.
 async function loadReadingList() {
   const sort = readingSort ? readingSort.value : "chron";
   const data = await api(`/api/reading-list?sort=${encodeURIComponent(sort)}`);

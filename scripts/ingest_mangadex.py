@@ -1,3 +1,5 @@
+"""Ingestion script that syncs MangaDex catalog metadata into sqlite."""
+
 import argparse
 import json
 import sqlite3
@@ -10,6 +12,7 @@ BASE_URL = "https://api.mangadex.org/manga"
 
 
 def request_json(params):
+    """Handle request json for this module."""
     query = urllib.parse.urlencode(params, doseq=True)
     url = f"{BASE_URL}?{query}"
     with urllib.request.urlopen(url, timeout=30) as resp:
@@ -17,6 +20,7 @@ def request_json(params):
 
 
 def ensure_tables(conn):
+    """Ensure tables exists before continuing."""
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS manga_core (
@@ -59,6 +63,7 @@ def ensure_tables(conn):
 
 
 def pick_lang_value(mapping, lang):
+    """Handle pick lang value for this module."""
     if not isinstance(mapping, dict):
         return None
     if lang in mapping:
@@ -69,6 +74,7 @@ def pick_lang_value(mapping, lang):
 
 
 def flatten_titles(titles):
+    """Handle flatten titles for this module."""
     items = []
     for entry in titles or []:
         if isinstance(entry, dict):
@@ -77,6 +83,7 @@ def flatten_titles(titles):
 
 
 def normalize_list(values):
+    """Normalize list for consistent comparisons."""
     seen = set()
     output = []
     for val in values:
@@ -90,6 +97,7 @@ def normalize_list(values):
 
 
 def infer_type(original_language):
+    """Handle infer type for this module."""
     mapping = {
         "ja": "Manga",
         "ko": "Manhwa",
@@ -103,6 +111,7 @@ def infer_type(original_language):
 
 
 def build_cover_url(manga_id, relationships):
+    """Build cover url for later use."""
     for rel in relationships or []:
         if rel.get("type") != "cover_art":
             continue
@@ -114,6 +123,7 @@ def build_cover_url(manga_id, relationships):
 
 
 def extract_authors(relationships):
+    """Handle extract authors for this module."""
     names = []
     for rel in relationships or []:
         if rel.get("type") not in {"author", "artist"}:
@@ -126,6 +136,7 @@ def extract_authors(relationships):
 
 
 def extract_tags(tags):
+    """Handle extract tags for this module."""
     genres = []
     themes = []
     for tag in tags or []:
@@ -142,6 +153,7 @@ def extract_tags(tags):
 
 
 def normalize_updated_since(value):
+    """Normalize updated since for consistent comparisons."""
     if not value:
         return None
     text = str(value).strip()
@@ -159,6 +171,7 @@ def normalize_updated_since(value):
 
 
 def bump_timestamp(value, seconds=1):
+    """Handle bump timestamp for this module."""
     normalized = normalize_updated_since(value)
     if not normalized:
         return None
@@ -168,6 +181,7 @@ def bump_timestamp(value, seconds=1):
 
 
 def main():
+    """Run the script entrypoint."""
     parser = argparse.ArgumentParser(description="Ingest MangaDex catalog into manga_core")
     parser.add_argument("--db", default="/opt/shelf/data/db/manga.db")
     parser.add_argument("--limit", type=int, default=100)

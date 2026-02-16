@@ -1,13 +1,18 @@
+"""Data-access helpers for user reading-list records."""
+
 from app.db import get_db
 
 
+# Reading-list repository with canonical ID matching across mdex/MAL/raw keys.
 def list_by_user(user_id, sort="chron"):
+    # Sorting uses fixed SQL fragments selected from known modes.
     order_sql = "ORDER BY r.created_at DESC"
     if sort == "alpha":
         order_sql = "ORDER BY m.title_name COLLATE NOCASE ASC"
     elif sort == "chron":
         order_sql = "ORDER BY r.created_at DESC"
     db = get_db()
+    # Join mapping + merged metadata so list rows can render titles/covers consistently.
     cur = db.execute(
         f"""
         SELECT r.user_id, r.manga_id, r.status, r.created_at, m.english_name, m.japanese_name, m.title_name, m.item_type, m.cover_url,
@@ -37,6 +42,7 @@ def list_by_user(user_id, sort="chron"):
 
 
 def add(user_id, manga_id, status="Plan to Read", canonical_id=None, mdex_id=None, mal_id=None):
+    # Remove duplicate representations before insert.
     db = get_db()
     db.execute(
         """
@@ -47,6 +53,7 @@ def add(user_id, manga_id, status="Plan to Read", canonical_id=None, mdex_id=Non
         (user_id, canonical_id or manga_id, mdex_id or manga_id, manga_id),
     )
     db.execute(
+        # `INSERT OR IGNORE` prevents duplicate PK inserts during concurrent calls.
         "INSERT OR IGNORE INTO user_reading_list (user_id, manga_id, status, mdex_id, mal_id, canonical_id) VALUES (lower(?), ?, ?, ?, ?, ?)",
         (user_id, canonical_id or manga_id, status, mdex_id, mal_id, canonical_id),
     )
@@ -54,6 +61,7 @@ def add(user_id, manga_id, status="Plan to Read", canonical_id=None, mdex_id=Non
 
 
 def remove(user_id, manga_id, canonical_id=None, mdex_id=None):
+    # Delete by any known key variant for this title.
     db = get_db()
     db.execute(
         """
@@ -67,6 +75,7 @@ def remove(user_id, manga_id, canonical_id=None, mdex_id=None):
 
 
 def list_manga_ids_by_user(user_id):
+    # Return normalized key list for exclusion in recommendation flow.
     db = get_db()
     cur = db.execute(
         """
@@ -81,14 +90,17 @@ def list_manga_ids_by_user(user_id):
         """,
         (user_id,),
     )
+    # Ignore null keys so callers can safely build a set().
     return [row[0] for row in cur.fetchall() if row[0]]
 
 
 def update_status(user_id, manga_id, status, canonical_id=None, mdex_id=None, mal_id=None):
+    # Update status and backfill IDs if a better key is now available.
     db = get_db()
     db.execute(
         """
         UPDATE user_reading_list
+        -- Preserve existing mal_id/canonical_id when already populated.
         SET status = ?, mdex_id = ?, mal_id = COALESCE(mal_id, ?), canonical_id = COALESCE(canonical_id, ?)
         WHERE lower(user_id) = lower(?)
           AND (canonical_id = ? OR mdex_id = ? OR manga_id = ?)

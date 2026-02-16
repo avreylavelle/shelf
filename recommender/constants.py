@@ -1,3 +1,5 @@
+"""Weight constants that tune recommendation behavior."""
+
 REQUESTED_GENRE_WEIGHT = 0.4 # Requested Genres
 REQUESTED_THEME_WEIGHT = 0.2 # Requested Themes
 HISTORY_GENRE_WEIGHT = 0.075 # Previously Requested Genres

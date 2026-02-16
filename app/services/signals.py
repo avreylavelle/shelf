@@ -1,3 +1,5 @@
+"""Behavioral signal tracking and affinity-score recomputation."""
+
 import os
 import sqlite3
 
@@ -15,6 +17,7 @@ RECOMMENDED_MULTIPLIER = 1.05
 
 
 def _resolve_db_path(db_path):
+    """Resolve db path into a canonical form."""
     if db_path:
         db_path = os.path.expandvars(os.path.expanduser(db_path))
         if not os.path.isabs(db_path):
@@ -26,6 +29,7 @@ def _resolve_db_path(db_path):
 
 
 def record_event(user_id, event_type, manga_id=None, value=None):
+    """Record event in persistent storage."""
     canonical_id = None
     if manga_id:
         resolved = manga_repo.resolve_manga_ref(manga_id)
@@ -39,6 +43,7 @@ def record_event(user_id, event_type, manga_id=None, value=None):
 
 
 def _fetch_manga_tags(db_path, manga_ids):
+    """Handle fetch manga tags for this module."""
     ids = [str(mid).strip() for mid in set(manga_ids) if mid]
     if not ids:
         return {}
@@ -100,6 +105,7 @@ def _fetch_manga_tags(db_path, manga_ids):
 
 
 def _add_scores(target, tags, weight):
+    """Add scores to storage."""
     if not tags:
         return
     per = weight / max(len(tags), 1)
@@ -108,6 +114,7 @@ def _add_scores(target, tags, weight):
 
 
 def _normalize(weights):
+    """Normalize values for consistent comparisons."""
     denom = sum(abs(v) for v in weights.values())
     if denom <= 0:
         return {}
@@ -115,6 +122,7 @@ def _normalize(weights):
 
 
 def recompute_affinities(user_id, db_path=None):
+    """Handle recompute affinities for this module."""
     db_path = _resolve_db_path(db_path)
     db = get_db()
 
@@ -207,6 +215,7 @@ def recompute_affinities(user_id, db_path=None):
 
 
 def get_event_counts(user_id):
+    """Return event counts."""
     db = get_db()
     rows = db.execute(
         "SELECT event_type, COUNT(*) AS count FROM user_events WHERE lower(user_id) = lower(?) GROUP BY event_type",
@@ -216,6 +225,7 @@ def get_event_counts(user_id):
 
 
 def get_snapshot(user_id):
+    """Return snapshot."""
     db = get_db()
     ratings_count = db.execute(
         "SELECT COUNT(*) AS count FROM user_ratings WHERE lower(user_id) = lower(?) AND rating IS NOT NULL",
@@ -224,6 +234,7 @@ def get_snapshot(user_id):
     profile = profile_service.get_profile(user_id) or {}
 
     def top_items(items, limit=10):
+        """Handle top items for this module."""
         return sorted(items.items(), key=lambda kv: abs(kv[1]), reverse=True)[:limit]
 
     return {

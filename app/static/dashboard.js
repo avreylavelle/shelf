@@ -1,5 +1,8 @@
+// Client-side behavior for dashboard.js.
+
 const summaryEl = document.getElementById("summary");
 
+// Load Summary and update the UI.
 async function loadSummary() {
   try {
     const [profileData, ratingsData, dnrData, readingData] = await Promise.all([

@@ -1,3 +1,5 @@
+"""Authentication API routes for register, login, and account actions."""
+
 from flask import Blueprint, jsonify, request, session
 
 from app.services import auth as auth_service
@@ -7,11 +9,13 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/shelf/api/auth")
 
 
 def _json_error(message, status=400):
+    """Handle json error for this module."""
     return jsonify({"error": message}), status
 
 
 @auth_bp.post("/register")
 def register():
+    """Handle register for this module."""
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
@@ -28,6 +32,7 @@ def register():
 
 @auth_bp.post("/login")
 def login():
+    """Handle login for this module."""
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
     password = data.get("password") or ""
@@ -45,12 +50,14 @@ def login():
 
 @auth_bp.post("/logout")
 def logout():
+    """Handle logout for this module."""
     session.pop("user_id", None)
     return jsonify({"ok": True})
 
 
 @auth_bp.post("/delete-account")
 def delete_account():
+    """Delete account."""
     user_id = session.get("user_id")
     if not user_id:
         return _json_error("auth required", status=401)
@@ -65,6 +72,7 @@ def delete_account():
 
 @auth_bp.post("/change-password")
 def change_password():
+    """Change password after validation."""
     user_id = session.get("user_id")
     if not user_id:
         return _json_error("auth required", status=401)

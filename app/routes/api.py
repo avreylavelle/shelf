@@ -1,3 +1,5 @@
+"""REST API routes for profile, library management, and recommendations."""
+
 from functools import wraps
 import re
 
@@ -19,8 +21,10 @@ api_bp = Blueprint("api", __name__, url_prefix="/shelf/api")
 
 
 def login_required(fn):
+    """Wrap endpoint handlers and reject unauthenticated requests."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
+        """Wrap the endpoint with shared access checks."""
         if not session.get("user_id"):
             return jsonify({"error": "auth required"}), 401
         return fn(*args, **kwargs)
@@ -29,8 +33,10 @@ def login_required(fn):
 
 
 def admin_required(fn):
+    """Wrap endpoint handlers and enforce the hardcoded admin account."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
+        """Wrap the endpoint with shared access checks."""
         if not session.get("user_id"):
             return jsonify({"error": "auth required"}), 401
         if session.get("user_id") != "avreylavelle":
@@ -43,6 +49,7 @@ def admin_required(fn):
 
 
 def _get_value(row, key):
+    """Return value."""
     try:
         return row.get(key)
     except AttributeError:
@@ -53,12 +60,14 @@ _STATS_NAME_CACHE = {}
 
 
 def _normalize_text(value):
+    """Normalize text for consistent comparisons."""
     if value is None:
         return ""
     return re.sub(r"\s+", " ", str(value)).strip().lower()
 
 
 def _english_like(value):
+    """Handle english like for this module."""
     if not value:
         return False
     latin = 0
@@ -73,6 +82,7 @@ def _english_like(value):
 
 
 def _best_english_synonym(synonyms, title):
+    """Handle best english synonym for this module."""
     if not synonyms:
         return None
     title_norm = _normalize_text(title)
@@ -94,6 +104,7 @@ def _best_english_synonym(synonyms, title):
 
 
 def _stats_english_name(mal_id):
+    """Handle stats english name for this module."""
     if not mal_id:
         return None
     try:
@@ -115,6 +126,7 @@ def _stats_english_name(mal_id):
 
 
 def _display_title(row, language):
+    """Handle display title for this module."""
     title = (
         _get_value(row, "title_name")
         or _get_value(row, "title")
@@ -152,6 +164,7 @@ def _sanitize_item(item):
     return item
 
 def _parse_list(value):
+    """Parse list into normalized data."""
     if value is None:
         return []
     if isinstance(value, list):
@@ -160,6 +173,7 @@ def _parse_list(value):
 
 
 def _parse_bool(value, default=False):
+    """Parse bool into normalized data."""
     if value is None:
         return default
     if isinstance(value, bool):
@@ -174,6 +188,7 @@ _VARIANT_RE = re.compile(
 
 
 def _variant_score(title):
+    """Handle variant score for this module."""
     if not title:
         return 1
     text = str(title).lower()
@@ -186,6 +201,7 @@ def _variant_score(title):
 
 
 def _dedupe_by_mal_id(items, query=None, limit=None):
+    """Deduplicate rows in by mal id and keep the best record."""
     if not items:
         return items
     if query and _VARIANT_RE.search(str(query).lower()):
@@ -218,6 +234,7 @@ def _dedupe_by_mal_id(items, query=None, limit=None):
 
 @api_bp.get("/session")
 def get_session():
+    """Return session."""
     user_id = session.get("user_id")
     return jsonify({"logged_in": bool(user_id), "user": user_id})
 
@@ -227,6 +244,7 @@ def get_session():
 @api_bp.get("/ui-prefs")
 @login_required
 def get_ui_prefs():
+    """Return ui prefs."""
     user_id = session["user_id"]
     prefs = profile_service.get_ui_prefs(user_id)
     return jsonify({"prefs": prefs})
@@ -235,6 +253,7 @@ def get_ui_prefs():
 @api_bp.put("/ui-prefs")
 @login_required
 def set_ui_prefs():
+    """Persist ui prefs."""
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
     current = profile_service.get_ui_prefs(user_id)
@@ -245,6 +264,7 @@ def set_ui_prefs():
 @api_bp.get("/profile")
 @login_required
 def get_profile():
+    """Return profile."""
     user_id = session["user_id"]
     profile = profile_service.get_profile(user_id)
     return jsonify({"profile": profile})
@@ -253,6 +273,7 @@ def get_profile():
 @api_bp.put("/profile")
 @login_required
 def update_profile():
+    """Update profile with new values."""
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
     age = data.get("age")
@@ -291,6 +312,7 @@ def update_profile():
 @api_bp.post("/profile/clear-history")
 @login_required
 def clear_history():
+    """Clear history for the current user."""
     user_id = session["user_id"]
     profile_service.clear_history(user_id)
     return jsonify({"ok": True})
@@ -301,6 +323,7 @@ def clear_history():
 @api_bp.get("/dnr")
 @login_required
 def list_dnr():
+    """Return dnr for the current context."""
     user_id = session["user_id"]
     sort = (request.args.get("sort") or "chron").strip()
     allowed = {"chron", "alpha"}
@@ -332,6 +355,7 @@ def list_dnr():
 @api_bp.post("/dnr")
 @login_required
 def add_dnr():
+    """Add dnr to storage."""
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
     manga_id = (data.get("manga_id") or "").strip()
@@ -346,6 +370,7 @@ def add_dnr():
 @api_bp.delete("/dnr/<path:manga_id>")
 @login_required
 def remove_dnr(manga_id):
+    """Remove dnr from storage."""
     user_id = session["user_id"]
     manga_id = (manga_id or "").strip()
     error = dnr_service.remove_item(user_id, manga_id)
@@ -357,6 +382,7 @@ def remove_dnr(manga_id):
 @api_bp.get("/reading-list")
 @login_required
 def list_reading_list():
+    """Return reading list for the current context."""
     user_id = session["user_id"]
     sort = (request.args.get("sort") or "chron").strip()
     allowed = {"chron", "alpha"}
@@ -388,6 +414,7 @@ def list_reading_list():
 @api_bp.post("/reading-list")
 @login_required
 def add_reading_list():
+    """Add reading list to storage."""
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
     manga_id = (data.get("manga_id") or "").strip()
@@ -403,6 +430,7 @@ def add_reading_list():
 @api_bp.put("/reading-list")
 @login_required
 def update_reading_list_status():
+    """Update reading list status with new values."""
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
     manga_id = (data.get("manga_id") or "").strip()
@@ -417,6 +445,7 @@ def update_reading_list_status():
 @api_bp.delete("/reading-list/<path:manga_id>")
 @login_required
 def remove_reading_list(manga_id):
+    """Remove reading list from storage."""
     user_id = session["user_id"]
     manga_id = (manga_id or "").strip()
     error = reading_list_service.remove_item(user_id, manga_id)
@@ -429,6 +458,7 @@ def remove_reading_list(manga_id):
 @api_bp.get("/ratings")
 @login_required
 def list_ratings():
+    """Return ratings for the current context."""
     user_id = session["user_id"]
     sort = (request.args.get("sort") or "chron").strip()
     allowed = {"chron", "alpha", "rating_desc", "rating_asc"}
@@ -473,6 +503,7 @@ def ratings_map():
 @api_bp.post("/ratings")
 @login_required
 def upsert_rating():
+    """Handle upsert rating for this module."""
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
     manga_id = (data.get("manga_id") or "").strip()
@@ -495,6 +526,7 @@ def upsert_rating():
 @api_bp.delete("/ratings/<path:manga_id>")
 @login_required
 def delete_rating(manga_id):
+    """Delete rating."""
     user_id = session["user_id"]
     manga_id = (manga_id or "").strip()
     error = ratings_service.delete_rating(user_id, manga_id)
@@ -507,6 +539,7 @@ def delete_rating(manga_id):
 @api_bp.get("/manga/search")
 @login_required
 def search_manga():
+    """Handle search manga for this module."""
     query = (request.args.get("q") or "").strip()
     if not query:
         return jsonify({"items": []})
@@ -537,6 +570,7 @@ def search_manga():
 @api_bp.get("/manga/browse")
 @login_required
 def browse_manga():
+    """Handle browse manga for this module."""
     sort = (request.args.get("sort") or "popularity").strip().lower()
     genres = _parse_list(request.args.get("genres") or request.args.get("genre"))
     themes = _parse_list(request.args.get("themes") or request.args.get("theme"))
@@ -621,6 +655,7 @@ def browse_manga():
 @api_bp.get("/manga/details")
 @login_required
 def manga_details():
+    """Handle manga details for this module."""
     manga_id = (request.args.get("id") or request.args.get("manga_id") or request.args.get("title") or "").strip()
     if not manga_id:
         return jsonify({"error": "id required"}), 400
@@ -655,6 +690,7 @@ def manga_details():
 @api_bp.post("/events")
 @login_required
 def record_event():
+    """Record event in persistent storage."""
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
     event_type = (data.get("event_type") or "").strip().lower()
@@ -675,6 +711,7 @@ def record_event():
 @api_bp.post("/admin/switch-user")
 @admin_required
 def admin_switch_user():
+    """Handle admin switch user for this module."""
     data = request.get_json(silent=True) or {}
     username = (data.get("username") or "").strip()
     if not username:
@@ -689,6 +726,7 @@ def admin_switch_user():
 @api_bp.get("/admin/model-snapshot")
 @admin_required
 def admin_model_snapshot():
+    """Handle admin model snapshot for this module."""
     username = (request.args.get("user") or "").strip()
     if not username:
         username = session["user_id"]
@@ -699,6 +737,7 @@ def admin_model_snapshot():
 @api_bp.get("/admin/ratings/export")
 @admin_required
 def admin_export_ratings():
+    """Handle admin export ratings for this module."""
     user_id = session["user_id"]
     rows = ratings_service.list_ratings(user_id, sort="chron")
     output = io.StringIO()
@@ -718,6 +757,7 @@ def admin_export_ratings():
 @api_bp.post("/admin/ratings/import")
 @admin_required
 def admin_import_ratings():
+    """Handle admin import ratings for this module."""
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
     csv_text = data.get("csv") or ""
@@ -743,6 +783,7 @@ def admin_import_ratings():
 @api_bp.post("/recommendations")
 @login_required
 def recommendations_with_prefs():
+    """Compute recommendation results for the requested user context."""
     user_id = session["user_id"]
     data = request.get_json(silent=True) or {}
     current_genres = _parse_list(data.get("genres"))

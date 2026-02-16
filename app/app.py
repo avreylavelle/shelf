@@ -1,3 +1,5 @@
+"""Flask app factory, route wiring, and startup database migrations."""
+
 import os
 import sqlite3
 
@@ -13,6 +15,7 @@ ADMIN_USER = "avreylavelle"  # simple admin gate for now
 
 
 def _default_db_path():
+    """Handle default db path for this module."""
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     return os.path.join(root, "data", "db", "manga.db")
 
@@ -346,22 +349,26 @@ def init_db(app):
 
 
 def _is_logged_in():
+    """Handle is logged in for this module."""
     return bool(session.get("user_id"))
 
 
 def _require_login():
+    """Handle require login for this module."""
     if not _is_logged_in():
         return redirect(url_for("login", next=request.path))
     return None
 
 
 def _require_admin():
+    """Handle require admin for this module."""
     if session.get("user_id") != ADMIN_USER:
         return redirect(url_for("dashboard"))
     return None
 
 
 def create_app():
+    """Create app."""
     app = Flask(
         __name__,
         static_folder="static",
@@ -393,16 +400,19 @@ def create_app():
     @app.route(f"{BASE_PATH}")
     @app.route(f"{BASE_PATH}/")
     def app_landing():
+        """Handle app landing for this module."""
         return render_template("app_landing.html", base_path=BASE_PATH)
 
     @app.route(f"{BASE_PATH}/login")
     def login():
+        """Handle login for this module."""
         if _is_logged_in():
             return redirect(url_for("dashboard"))
         return render_template("login.html", base_path=BASE_PATH)
 
     @app.route(f"{BASE_PATH}/dashboard")
     def dashboard():
+        """Handle dashboard for this module."""
         guard = _require_login()
         if guard:
             return guard
@@ -410,6 +420,7 @@ def create_app():
 
     @app.route(f"{BASE_PATH}/profile")
     def profile():
+        """Handle profile for this module."""
         guard = _require_login()
         if guard:
             return guard
@@ -418,6 +429,7 @@ def create_app():
 
     @app.route(f"{BASE_PATH}/ratings")
     def ratings():
+        """Handle ratings for this module."""
         guard = _require_login()
         if guard:
             return guard
@@ -425,6 +437,7 @@ def create_app():
 
     @app.route(f"{BASE_PATH}/search")
     def search():
+        """Handle search for this module."""
         guard = _require_login()
         if guard:
             return guard
@@ -433,6 +446,7 @@ def create_app():
 
     @app.route(f"{BASE_PATH}/recommendations")
     def recommendations():
+        """Compute recommendation results for the requested user context."""
         guard = _require_login()
         if guard:
             return guard
@@ -447,6 +461,7 @@ def create_app():
 
     @app.route(f"{BASE_PATH}/admin")
     def admin():
+        """Handle admin for this module."""
         guard = _require_login()
         if guard:
             return guard
@@ -459,6 +474,7 @@ def create_app():
 
     @app.route(f"{BASE_PATH}/do-not-recommend")
     def do_not_recommend():
+        """Handle do not recommend for this module."""
         guard = _require_login()
         if guard:
             return guard
@@ -466,6 +482,7 @@ def create_app():
 
     @app.route(f"{BASE_PATH}/reading-list")
     def reading_list():
+        """Handle reading list for this module."""
         guard = _require_login()
         if guard:
             return guard
@@ -473,6 +490,7 @@ def create_app():
 
     @app.route(f"{BASE_PATH}/logout")
     def logout():
+        """Handle logout for this module."""
         session.pop("user_id", None)
         return redirect(url_for("login"))
 

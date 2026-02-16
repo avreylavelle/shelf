@@ -1,8 +1,11 @@
+"""Bootstrap script that initializes the SQLite schema from SQL."""
+
 import os
 import sqlite3
 
 
 def main():
+    """Run the script entrypoint."""
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     db_dir = os.path.join(base_dir, "data", "db")
     os.makedirs(db_dir, exist_ok=True)

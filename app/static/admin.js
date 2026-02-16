@@ -1,3 +1,5 @@
+// Client-side behavior for admin.js.
+
 const switchUsername = document.getElementById("switch-username");
 const switchBtn = document.getElementById("switch-user");
 const adminStatus = document.getElementById("admin-status");
@@ -5,11 +7,13 @@ const importCsv = document.getElementById("import-csv");
 const importBtn = document.getElementById("import-btn");
 const importStatus = document.getElementById("import-status");
 
+// Set Status and keep the UI in sync.
 function setStatus(el, text, isError = false) {
   el.textContent = text;
   el.className = isError ? "status error" : "status";
 }
 
+// Switchuser helper for this page.
 async function switchUser() {
   const username = switchUsername.value.trim();
   if (!username) return;
@@ -21,6 +25,7 @@ async function switchUser() {
   loadNavUser();
 }
 
+// Importratings helper for this page.
 async function importRatings() {
   const csv = importCsv.value.trim();
   if (!csv) return;

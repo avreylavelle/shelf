@@ -1,3 +1,5 @@
+// Client-side behavior for search.js.
+
 const searchInput = document.getElementById("search-input");
 const searchBtn = document.getElementById("search-btn");
 const searchStatus = document.getElementById("search-status");
@@ -53,32 +55,38 @@ const listState = {
   reading: new Set(),
 };
 
+// Cssescape helper for this page.
 function cssEscape(value) {
   if (window.CSS && CSS.escape) return CSS.escape(value);
   return String(value).replace(/"/g, '\\"');
 }
 
+// Set Status and keep the UI in sync.
 function setStatus(text, isError = false) {
   if (!searchStatus) return;
   searchStatus.textContent = text;
   searchStatus.className = isError ? "status error" : "status";
 }
 
+// Set Loading and keep the UI in sync.
 function setLoading(el, isLoading) {
   if (!el) return;
   el.style.display = isLoading ? "inline-flex" : "none";
   el.setAttribute("aria-busy", String(isLoading));
 }
 
+// Selectedtypes helper for this page.
 function selectedTypes() {
   return typeOptions.filter((opt) => opt.checked).map((opt) => opt.value);
 }
 
+// Selectedtypeset helper for this page.
 function selectedTypeSet() {
   const selected = selectedTypes();
   return selected.length ? new Set(selected) : null;
 }
 
+// Set DefaultTypes and keep the UI in sync.
 function setDefaultTypes() {
   if (!typeOptions.length) return;
   typeOptions.forEach((opt) => {
@@ -86,12 +94,14 @@ function setDefaultTypes() {
   });
 }
 
+// Filterbytype helper for this page.
 function filterByType(items) {
   const typeSet = selectedTypeSet();
   if (!typeSet) return items;
   return items.filter((item) => !item.item_type || typeSet.has(item.item_type));
 }
 
+// Load ListState and update the UI.
 async function loadListState() {
   const [ratingsData, dnrData, readingData] = await Promise.all([
     api("/api/ratings/map").catch(() => ({ items: {} })),
@@ -103,6 +113,7 @@ async function loadListState() {
   listState.reading = new Set((readingData.items || []).map((item) => item.mdex_id || item.manga_id));
 }
 
+// Updateliststate helper for this page.
 function updateListState(mangaId, destination) {
   listState.ratings.delete(mangaId);
   listState.reading.delete(mangaId);
@@ -112,6 +123,7 @@ function updateListState(mangaId, destination) {
   if (destination === "DNR") listState.dnr.add(mangaId);
 }
 
+// Read Locations used by this view.
 function getLocations(mangaId) {
   const locations = [];
   if (listState.ratings.has(mangaId)) locations.push("Ratings");
@@ -120,6 +132,7 @@ function getLocations(mangaId) {
   return locations;
 }
 
+// Openaddmodal helper for this page.
 function openAddModal(mangaId, displayTitle) {
   if (!addModal) return;
   addModal.dataset.id = mangaId;
@@ -128,11 +141,13 @@ function openAddModal(mangaId, displayTitle) {
   addModal.showModal();
 }
 
+// Closeaddmodal helper for this page.
 function closeAddModal() {
   if (!addModal) return;
   addModal.close();
 }
 
+// Openratemodal helper for this page.
 function openRateModal(mangaId, displayTitle) {
   if (!rateModal) return;
   rateModal.dataset.id = mangaId;
@@ -144,11 +159,13 @@ function openRateModal(mangaId, displayTitle) {
   rateModal.showModal();
 }
 
+// Closeratemodal helper for this page.
 function closeRateModal() {
   if (!rateModal) return;
   rateModal.close();
 }
 
+// Removeitemeverywhere helper for this page.
 function removeItemEverywhere(mangaId) {
   if (searchResults) {
     const el = searchResults.querySelector(`.result-card[data-id="${cssEscape(mangaId)}"]`);
@@ -162,6 +179,7 @@ function removeItemEverywhere(mangaId) {
   state.browseItems = state.browseItems.filter((item) => item.id !== mangaId);
 }
 
+// Render List into the page.
 function renderList(container, items) {
   if (!container) return;
   if (!items.length) {
@@ -194,6 +212,7 @@ function renderList(container, items) {
     .join("");
 }
 
+// Render BrowseChips into the page.
 function renderBrowseChips() {
   if (browseGenresEl) {
     browseGenresEl.innerHTML = state.browseGenres
@@ -219,6 +238,7 @@ function renderBrowseChips() {
   }
 }
 
+// Addbrowsegenre helper for this page.
 function addBrowseGenre() {
   if (!browseGenreSelect) return;
   const value = browseGenreSelect.value;
@@ -227,6 +247,7 @@ function addBrowseGenre() {
   renderBrowseChips();
 }
 
+// Addbrowsetheme helper for this page.
 function addBrowseTheme() {
   if (!browseThemeSelect) return;
   const value = browseThemeSelect.value;
@@ -235,6 +256,7 @@ function addBrowseTheme() {
   renderBrowseChips();
 }
 
+// Handle Details events.
 async function handleDetails(mangaId, title) {
   api("/api/events", {
     method: "POST",
@@ -247,6 +269,7 @@ async function handleDetails(mangaId, title) {
   }
 }
 
+// Searchtitles helper for this page.
 async function searchTitles() {
   if (!searchInput) return;
   const query = searchInput.value.trim();
@@ -267,6 +290,7 @@ async function searchTitles() {
   }
 }
 
+// Browsetitles helper for this page.
 async function browseTitles() {
   setLoading(browseLoading, true);
   try {
@@ -288,6 +312,7 @@ async function browseTitles() {
   }
 }
 
+// Load UiPrefs and update the UI.
 async function loadUiPrefs() {
   try {
     const data = await api("/api/ui-prefs");
@@ -312,6 +337,7 @@ async function loadUiPrefs() {
   }
 }
 
+// Saveuipref helper for this page.
 async function saveUiPref(key, value) {
   try {
     await api("/api/ui-prefs", {
@@ -405,6 +431,7 @@ if (typesModal) {
   });
 }
 
+// Attachlisthandlers helper for this page.
 function attachListHandlers(container) {
   if (!container) return;
   container.addEventListener("click", (event) => {

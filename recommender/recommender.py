@@ -1,3 +1,5 @@
+"""Entry point that runs filtering and delegates scoring by algorithm version."""
+
 from recommender.filtering import run_filters
 from recommender.scoring import score_and_rank, score_and_rank_v2, score_and_rank_v3
 
@@ -23,6 +25,7 @@ def recommendation_scores(
     precomputed=None,
 ):
 
+    """Compute recommendation results for the requested user context."""
     if prefiltered_df is not None:
         filtered = prefiltered_df
     else:

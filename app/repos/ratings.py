@@ -1,8 +1,13 @@
+"""Data-access helpers for user rating records."""
+
 from app.db import get_db
 
 
+# Ratings repository: read/write rating rows with canonical ID fallback logic.
 def list_by_user(user_id, sort="chron"):
+    """Return by user for the current context."""
     db = get_db()
+    # Sorting is selected from a fixed allowlist to keep SQL safe.
     order_sql = "ORDER BY r.created_at DESC"
 
     if sort == "alpha":
@@ -14,6 +19,7 @@ def list_by_user(user_id, sort="chron"):
     elif sort == "chron":
         order_sql = "ORDER BY r.created_at DESC"
 
+    # Join map/merged tables so each stored key form still resolves to metadata.
     cur = db.execute(
         f"""
         SELECT r.user_id, r.manga_id, r.rating, r.recommended_by_us, r.finished_reading, r.created_at,
@@ -44,6 +50,7 @@ def list_by_user(user_id, sort="chron"):
 
 
 def list_ratings_map(user_id):
+    # Return compact {canonical_key: rating} map used by recommender/UI.
     db = get_db()
     cur = db.execute(
         """
@@ -71,6 +78,7 @@ def list_ratings_map(user_id):
 
 
 def upsert_rating(user_id, manga_id, rating, recommended_by_us, finished_reading, canonical_id=None, mdex_id=None, mal_id=None):
+    # Find existing row even if caller sends a different key representation.
     db = get_db()
     existing = db.execute(
         """
@@ -81,7 +89,9 @@ def upsert_rating(user_id, manga_id, rating, recommended_by_us, finished_reading
         """,
         (user_id, canonical_id or manga_id, mdex_id or manga_id, manga_id),
     ).fetchone()
+    # Reuse existing primary-key value when found to avoid duplicates for same title.
     key = existing[0] if existing else (canonical_id or manga_id)
+    # Maintain exactly one rating row per user/title key.
     db.execute(
         """
         INSERT INTO user_ratings (user_id, manga_id, rating, recommended_by_us, finished_reading, mdex_id, mal_id, canonical_id)
@@ -94,12 +104,14 @@ def upsert_rating(user_id, manga_id, rating, recommended_by_us, finished_reading
             mal_id = excluded.mal_id,
             canonical_id = excluded.canonical_id
         """,
+        # First value is lower-cased in SQL, others are payload fields in column order.
         (user_id, key, rating, recommended_by_us, finished_reading, mdex_id, mal_id, canonical_id),
     )
     db.commit()
 
 
 def delete_rating(user_id, manga_id):
+    # Delete by canonical/mdex/raw key to handle historical rows.
     db = get_db()
     db.execute(
         """
@@ -111,7 +123,9 @@ def delete_rating(user_id, manga_id):
     )
     db.commit()
 
+
 def get_rating_value(user_id, manga_id):
+    # Read existing rating value when toggling flags without resubmitting score.
     db = get_db()
     cur = db.execute(
         """

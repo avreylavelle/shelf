@@ -1,3 +1,5 @@
+// Client-side behavior for recommendations.js.
+
 const recommendationsEl = document.getElementById("recommendations");
 const recommendBtn = document.getElementById("recommend-btn");
 const optionsBtn = document.getElementById("options-btn");
@@ -53,6 +55,7 @@ const addReadingBtn = document.getElementById("add-reading");
 const addDnrBtn = document.getElementById("add-dnr");
 const addCloseBtn = document.getElementById("add-close");
 
+// Openratemodal helper for this page.
 function openRateModal(mangaId, displayTitle) {
   if (!rateModal) return;
   rateModal.dataset.id = mangaId;
@@ -66,11 +69,13 @@ function openRateModal(mangaId, displayTitle) {
   rateModal.showModal();
 }
 
+// Closeratemodal helper for this page.
 function closeRateModal() {
   if (!rateModal) return;
   rateModal.close();
 }
 
+// Openaddmodal helper for this page.
 function openAddModal(mangaId, displayTitle) {
   if (!addModal) return;
   addModal.dataset.id = mangaId;
@@ -79,12 +84,14 @@ function openAddModal(mangaId, displayTitle) {
   addModal.showModal();
 }
 
+// Closeaddmodal helper for this page.
 function closeAddModal() {
   if (!addModal) return;
   addModal.close();
 }
 
 
+// Load UiPrefs and update the UI.
 async function loadUiPrefs() {
   try {
     const data = await api("/api/ui-prefs");
@@ -129,6 +136,7 @@ async function loadUiPrefs() {
   }
 }
 
+// Saveuipref helper for this page.
 async function saveUiPref(key, value) {
   try {
     await api("/api/ui-prefs", {
@@ -138,29 +146,34 @@ async function saveUiPref(key, value) {
   } catch (err) {}
 }
 
+// Set Loading and keep the UI in sync.
 function setLoading(isLoading) {
   loadingEl.setAttribute("aria-busy", String(isLoading));
   loadingEl.style.display = isLoading ? "inline-flex" : "none";
 }
 
 
+// Cssescape helper for this page.
 function cssEscape(value) {
   if (window.CSS && CSS.escape) return CSS.escape(value);
   return String(value).replace(/"/g, '\"');
 }
 
+// Removerecommendation helper for this page.
 function removeRecommendation(mangaId) {
   const selector = `.result-card[data-id="${cssEscape(mangaId)}"]`;
   const el = recommendationsEl.querySelector(selector);
   if (el) el.remove();
 }
 
+// Displayfortitle helper for this page.
 function displayForTitle(mangaId) {
   const selector = `.result-card[data-id="${cssEscape(mangaId)}"]`;
   const el = recommendationsEl.querySelector(selector);
   return (el && el.dataset.display) || mangaId;
 }
 
+// Render Recommendations into the page.
 function renderRecommendations(items) {
   if (!items.length) {
     recommendationsEl.innerHTML = "<p class='muted'>No recommendations yet.</p>";
@@ -195,11 +208,13 @@ function renderRecommendations(items) {
     .join("");
 }
 
+// Selectedtypes helper for this page.
 function selectedTypes() {
   return typeOptions.filter((opt) => opt.checked).map((opt) => opt.value);
 }
 
 
+// Render SelectionChips into the page.
 function renderSelectionChips(container, items, type) {
   if (!container) return;
   const safeItems = Array.isArray(items) ? items : [];
@@ -214,6 +229,7 @@ function renderSelectionChips(container, items, type) {
     .join("");
 }
 
+// Addgenre helper for this page.
 function addGenre() {
   const value = genreSelect.value;
   if (!value || state.genres.includes(value)) return;
@@ -221,6 +237,7 @@ function addGenre() {
   renderSelectionChips(selectedGenresEl, state.genres, "genre");
 }
 
+// Addtheme helper for this page.
 function addTheme() {
   const value = themeSelect.value;
   if (!value || state.themes.includes(value)) return;
@@ -228,6 +245,7 @@ function addTheme() {
   renderSelectionChips(selectedThemesEl, state.themes, "theme");
 }
 
+// Addblacklistgenre helper for this page.
 function addBlacklistGenre() {
   const value = blacklistGenreSelect ? blacklistGenreSelect.value : "";
   if (!value || state.blacklistGenres.includes(value)) return;
@@ -235,6 +253,7 @@ function addBlacklistGenre() {
   renderSelectionChips(blacklistGenresEl, state.blacklistGenres, "blacklist-genre");
 }
 
+// Addblacklisttheme helper for this page.
 function addBlacklistTheme() {
   const value = blacklistThemeSelect ? blacklistThemeSelect.value : "";
   if (!value || state.blacklistThemes.includes(value)) return;
@@ -242,11 +261,13 @@ function addBlacklistTheme() {
   renderSelectionChips(blacklistThemesEl, state.blacklistThemes, "blacklist-theme");
 }
 
+// Load RatingsMap and update the UI.
 async function loadRatingsMap() {
   const data = await api("/api/ratings/map");
   state.ratingsMap = data.items || {};
 }
 
+// Fetchrecommendationswithprefs helper for this page.
 async function fetchRecommendationsWithPrefs() {
   // ONLY fetch on button click (no auto-recs on load)
   setLoading(true);
@@ -275,6 +296,7 @@ async function fetchRecommendationsWithPrefs() {
   }
 }
 
+// Handle Details events.
 async function handleDetails(mangaId, title) {
   api("/api/events", {
     method: "POST",

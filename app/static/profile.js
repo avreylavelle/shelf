@@ -1,3 +1,5 @@
+// Client-side behavior for profile.js.
+
 const profileUsername = document.getElementById("profile-username");
 const profileAge = document.getElementById("profile-age");
 const profileGender = document.getElementById("profile-gender");
@@ -14,11 +16,13 @@ const historyThemesEl = document.getElementById("history-themes");
 const historyBlacklistGenresEl = document.getElementById("history-blacklist-genres");
 const historyBlacklistThemesEl = document.getElementById("history-blacklist-themes");
 
+// Set Status and keep the UI in sync.
 function setStatus(text, isError = false) {
   statusEl.textContent = text;
   statusEl.className = isError ? "status error" : "status";
 }
 
+// Render History into the page.
 function renderHistory(container, items) {
   if (!container) return;
   const entries = Object.entries(items || {});
@@ -32,6 +36,7 @@ function renderHistory(container, items) {
   container.innerHTML = chips.join("");
 }
 
+// Load Profile and update the UI.
 async function loadProfile() {
   const data = await api("/api/profile");
   const profile = data.profile || {};
@@ -45,6 +50,7 @@ async function loadProfile() {
   renderHistory(historyBlacklistThemesEl, profile.blacklist_themes);
 }
 
+// Saveprofile helper for this page.
 async function saveProfile() {
   const payload = {
     username: profileUsername.value.trim(),
@@ -61,6 +67,7 @@ async function saveProfile() {
   await loadProfile();
 }
 
+// Clearhistory helper for this page.
 async function clearHistory() {
   // Wipes preferred_genres/preferred_themes
   await api("/api/profile/clear-history", { method: "POST" });
@@ -69,6 +76,7 @@ async function clearHistory() {
 }
 
 
+// Deleteaccount helper for this page.
 async function deleteAccount() {
   const ok = window.confirm(
     "This will delete your account profile. Your ratings will stay in the database. Continue?"
@@ -79,6 +87,7 @@ async function deleteAccount() {
   window.location.href = `${BASE_PATH}/login`;
 }
 
+// Changepassword helper for this page.
 async function changePassword() {
   await api("/api/auth/change-password", {
     method: "POST",

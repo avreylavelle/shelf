@@ -1,3 +1,5 @@
+"""Development entrypoint that runs the Flask application."""
+
 from app.app import app
 
 

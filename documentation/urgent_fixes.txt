@@ -1,0 +1,60 @@
+Urgent Fixes Plan (Small First PRs)
+
+PR1 - Security Baseline (do this first)
+- Scope: remove unsafe defaults and decouple admin from username.
+- Files:
+  - main.py:5
+  - app/app.py:371
+  - app/app.py:358
+  - app/routes/api.py:31
+  - app/templates/dashboard.html:21
+- Changes:
+  - Default debug to False.
+  - Fail fast if FLASK_SECRET_KEY is missing or weak outside dev.
+  - Add users.is_admin and check that instead of "avreylavelle".
+  - Keep one bootstrap path for first admin.
+- Done when:
+  - Admin access works only via DB role.
+  - App no longer starts in insecure mode by default.
+
+PR2 - Frontend XSS Hardening
+- Scope: stop injecting raw strings into innerHTML.
+- Files:
+  - app/static/recommendations.js:170
+  - app/static/ratings.js:163
+  - app/static/reading_list.js:136
+  - app/static/dnr.js:99
+  - app/static/search.js:171
+- Changes:
+  - Wrap all dynamic values with escaping, or render via textContent DOM nodes.
+  - Keep innerHTML only for static markup.
+- Done when:
+  - Dataset/user-provided strings cannot render script/HTML in cards, chips, badges, or titles.
+
+PR3 - Account Data Consistency (rename + delete)
+- Scope: make identity operations consistent across all user tables.
+- Files:
+  - app/repos/profile.py:48
+  - app/services/auth.py:60
+  - app/repos/users.py:29
+  - related table setup/migration logic in app/app.py
+  - UI copy in app/static/profile.js:74
+- Changes:
+  - Username rename updates user_events, user_requests, and user_request_cache.
+  - Delete-account follows an explicit policy (full cascade delete or anonymize).
+  - Align UI copy with actual behavior.
+- Done when:
+  - No orphaned rows.
+  - No stale username references.
+  - Delete behavior is explicit and predictable.
+
+Optional PR4 - Browse Performance + Test Baseline
+- Scope: avoid per-request dataframe reload and add regression tests.
+- Files:
+  - app/routes/api.py:561
+- Changes:
+  - Use the recommendations cache path instead of reloading data per request.
+  - Add pytest smoke tests for:
+    - admin gate behavior
+    - rename/delete consistency
+    - recommendations endpoint basic behavior

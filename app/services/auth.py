@@ -1,13 +1,17 @@
+"""Authentication business logic and password validation flow."""
+
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.repos import users as users_repo
 
 
 def _normalize(username):
+    """Normalize values for consistent comparisons."""
     return (username or "").strip().lower()
 
 
 def register(username, password, age=None, gender=None):
+    """Handle register for this module."""
     username = _normalize(username)
     existing = users_repo.get_by_username(username)
     if existing:
@@ -24,6 +28,7 @@ def register(username, password, age=None, gender=None):
 
 
 def login(username, password):
+    """Handle login for this module."""
     username = _normalize(username)
     user = users_repo.get_by_username(username)
     if not user:
@@ -40,6 +45,7 @@ def login(username, password):
 
 
 def change_password(username, current_password, new_password):
+    """Change password after validation."""
     username = _normalize(username)
     user = users_repo.get_by_username(username)
     if not user:
@@ -58,6 +64,7 @@ def change_password(username, current_password, new_password):
 
 
 def delete_account(username):
+    """Delete account."""
     username = _normalize(username)
     user = users_repo.get_by_username(username)
     if not user:

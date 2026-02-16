@@ -1,3 +1,5 @@
+"""Script to build MangaDex-to-MAL mappings using title heuristics."""
+
 import argparse
 import ast
 import re
@@ -5,6 +7,7 @@ import sqlite3
 
 
 def normalize_title(value):
+    """Normalize title for consistent comparisons."""
     if not value:
         return ""
     value = str(value).lower().strip()
@@ -13,6 +16,7 @@ def normalize_title(value):
 
 
 def normalize_item_type(value):
+    """Normalize item type for consistent comparisons."""
     if not value:
         return None
     text = str(value).strip().lower()
@@ -25,6 +29,7 @@ def normalize_item_type(value):
 
 
 def parse_list(value):
+    """Parse list into normalized data."""
     if not value:
         return []
     if isinstance(value, list):
@@ -40,6 +45,7 @@ def parse_list(value):
 
 
 def extract_year(value):
+    """Handle extract year for this module."""
     if not value:
         return None
     match = re.search(r"(19|20)\d{2}", str(value))
@@ -52,6 +58,7 @@ def extract_year(value):
 
 
 def main():
+    """Run the script entrypoint."""
     parser = argparse.ArgumentParser(description="Build MangaDex -> MAL map using title fallback")
     parser.add_argument("--db", default="/opt/shelf/data/db/manga.db")
     parser.add_argument("--max", type=int, default=0, help="max mappings to add (0 = all)")

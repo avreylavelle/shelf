@@ -1,3 +1,5 @@
+"""Import script for loading MAL CSV stats into sqlite tables."""
+
 import argparse
 import csv
 import os
@@ -6,6 +8,7 @@ from pathlib import Path
 
 
 def ensure_tables(conn):
+    """Ensure tables exists before continuing."""
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS manga_stats (
@@ -45,6 +48,7 @@ def ensure_tables(conn):
 
 
 def clean(value):
+    """Handle clean for this module."""
     if value is None:
         return None
     if isinstance(value, str):
@@ -54,6 +58,7 @@ def clean(value):
 
 
 def main():
+    """Run the script entrypoint."""
     parser = argparse.ArgumentParser(description="Import MAL CSV into manga_stats table")
     parser.add_argument("--db", default="/opt/shelf/data/db/manga.db")
     parser.add_argument("--csv", default="/opt/shelf/data/imports/mal.csv")

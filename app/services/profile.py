@@ -1,3 +1,5 @@
+"""Profile service logic for preferences, history, and UI settings."""
+
 import json
 
 from app.db import get_db
@@ -7,18 +9,22 @@ from utils.parsing import parse_dict, parse_list
 
 
 def _normalize(username):
+    """Normalize values for consistent comparisons."""
     return (username or "").strip().lower()
 
 
 def get_profile(username):
+    """Return profile."""
     return profile_repo.get_profile(_normalize(username))
 
 
 def update_profile(username, age=None, gender=None, language=None):
+    """Update profile with new values."""
     profile_repo.update_profile(_normalize(username), age=age, gender=gender, language=language)
 
 
 def change_username(old_username, new_username):
+    """Change username after validation."""
     new_username = _normalize(new_username)
     old_username = _normalize(old_username)
     if not new_username:
@@ -36,6 +42,7 @@ def change_username(old_username, new_username):
 
 
 def clear_history(username):
+    """Clear history for the current user."""
     username = _normalize(username)
     profile_repo.clear_history(username)
     db = get_db()
@@ -45,6 +52,7 @@ def clear_history(username):
 
 
 def increment_preferences(username, current_genres, current_themes):
+    """Increment counters for preferences."""
     profile = profile_repo.get_profile(_normalize(username))
     if not profile:
         return
@@ -62,10 +70,12 @@ def increment_preferences(username, current_genres, current_themes):
 
 
 def set_ui_prefs(username, ui_prefs):
+    """Persist ui prefs."""
     profile_repo.set_ui_prefs(_normalize(username), ui_prefs)
 
 
 def get_ui_prefs(username):
+    """Return ui prefs."""
     profile = profile_repo.get_profile(_normalize(username))
     if not profile:
         return {}
@@ -73,10 +83,12 @@ def get_ui_prefs(username):
 
 
 def set_signal_affinities(username, signal_genres, signal_themes):
+    """Persist signal affinities."""
     profile_repo.set_signal_affinities(_normalize(username), signal_genres, signal_themes)
 
 
 def increment_blacklist_history(username, blacklist_genres, blacklist_themes):
+    """Increment counters for blacklist history."""
     profile = profile_repo.get_profile(_normalize(username))
     if not profile:
         return
@@ -98,6 +110,7 @@ def increment_blacklist_history(username, blacklist_genres, blacklist_themes):
 
 
 def record_request_history(username, current_genres, current_themes, blacklist_genres, blacklist_themes, max_requests=100):
+    """Record request history in persistent storage."""
     username = _normalize(username)
     db = get_db()
 
@@ -136,6 +149,7 @@ def record_request_history(username, current_genres, current_themes, blacklist_g
     request_count = int(row["request_count"]) if row and row["request_count"] is not None else 0
 
     def apply_delta(target, items, delta):
+        """Handle apply delta for this module."""
         for item in items:
             if not item:
                 continue

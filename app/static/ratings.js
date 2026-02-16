@@ -1,3 +1,5 @@
+// Client-side behavior for ratings.js.
+
 const ratingsEl = document.getElementById("ratings");
 const ratingsSort = document.getElementById("ratings-sort");
 const ratingsFilter = document.getElementById("ratings-filter");
@@ -32,6 +34,7 @@ const listState = {
   reading: new Set(),
 };
 
+// Load ListState and update the UI.
 async function loadListState() {
   const [ratingsData, dnrData, readingData] = await Promise.all([
     api("/api/ratings/map").catch(() => ({ items: {} })),
@@ -43,6 +46,7 @@ async function loadListState() {
   listState.reading = new Set((readingData.items || []).map((item) => item.mdex_id || item.manga_id));
 }
 
+// Read Locations used by this view.
 function getLocations(mangaId) {
   const locations = [];
   if (listState.ratings.has(mangaId)) locations.push("Ratings");
@@ -51,15 +55,18 @@ function getLocations(mangaId) {
   return locations;
 }
 
+// Selectedtypes helper for this page.
 function selectedTypes() {
   return typeOptions.filter((opt) => opt.checked).map((opt) => opt.value);
 }
 
+// Selectedtypeset helper for this page.
 function selectedTypeSet() {
   const selected = selectedTypes();
   return selected.length ? new Set(selected) : null;
 }
 
+// Set DefaultTypes and keep the UI in sync.
 function setDefaultTypes() {
   if (!typeOptions.length) return;
   typeOptions.forEach((opt) => {
@@ -67,6 +74,7 @@ function setDefaultTypes() {
   });
 }
 
+// Applylegacydefaulttypes helper for this page.
 function applyLegacyDefaultTypes(desired) {
   if (!desired || !typeOptions.length) return false;
   if (desired.size !== LEGACY_DEFAULT_TYPES.size) return false;
@@ -79,6 +87,7 @@ function applyLegacyDefaultTypes(desired) {
   return true;
 }
 
+// Openratemodal helper for this page.
 function openRateModal(mangaId, displayTitle, rating = "", recommended = false, finished = false) {
   if (!rateModal) return;
   rateModal.dataset.id = mangaId;
@@ -92,11 +101,13 @@ function openRateModal(mangaId, displayTitle, rating = "", recommended = false, 
   rateModal.showModal();
 }
 
+// Closeratemodal helper for this page.
 function closeRateModal() {
   if (!rateModal) return;
   rateModal.close();
 }
 
+// Load UiPrefs and update the UI.
 async function loadUiPrefs() {
   try {
     const data = await api("/api/ui-prefs");
@@ -126,6 +137,7 @@ async function loadUiPrefs() {
   }
 }
 
+// Saveuipref helper for this page.
 async function saveUiPref(key, value) {
   try {
     await api("/api/ui-prefs", {
@@ -135,11 +147,13 @@ async function saveUiPref(key, value) {
   } catch (err) {}
 }
 
+// Set Loading and keep the UI in sync.
 function setLoading(isLoading) {
   loadingEl.setAttribute("aria-busy", String(isLoading));
   loadingEl.style.display = isLoading ? "inline-flex" : "none";
 }
 
+// Filterratingitems helper for this page.
 function filterRatingItems(items) {
   const query = (ratingsFilter && ratingsFilter.value.trim().toLowerCase()) || "";
   const typeSet = selectedTypeSet();
@@ -151,6 +165,7 @@ function filterRatingItems(items) {
   });
 }
 
+// Render Ratings into the page.
 function renderRatings() {
   const filtered = filterRatingItems(state.items);
   const items = collapseByMalId(filtered);
@@ -184,6 +199,7 @@ function renderRatings() {
 
 }
 
+// Handle Details events.
 async function handleDetails(mangaId, title) {
   api("/api/events", {
     method: "POST",
@@ -196,6 +212,7 @@ async function handleDetails(mangaId, title) {
   }
 }
 
+// Load Ratings and update the UI.
 async function loadRatings() {
   setLoading(true);
   try {
@@ -207,6 +224,7 @@ async function loadRatings() {
   }
 }
 
+// Deleterating helper for this page.
 async function deleteRating(mangaId) {
   await api(`/api/ratings/${encodeURIComponent(mangaId)}`, { method: "DELETE" });
   await loadRatings();

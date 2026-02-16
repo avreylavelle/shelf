@@ -1,3 +1,5 @@
+// Client-side behavior for dnr.js.
+
 const dnrList = document.getElementById("dnr-list");
 const dnrSort = document.getElementById("dnr-sort");
 const dnrFilter = document.getElementById("dnr-filter");
@@ -11,6 +13,7 @@ const typeOptions = Array.from(document.querySelectorAll("#dnr-types-modal .type
 
 const LEGACY_DEFAULT_TYPES = new Set(["Manga", "Manhwa", "Manhua"]);
 
+// Load UiPrefs and update the UI.
 async function loadUiPrefs() {
   try {
     const data = await api("/api/ui-prefs");
@@ -39,6 +42,7 @@ async function loadUiPrefs() {
   }
 }
 
+// Saveuipref helper for this page.
 async function saveUiPref(key, value) {
   try {
     await api("/api/ui-prefs", {
@@ -50,10 +54,12 @@ async function saveUiPref(key, value) {
 
 const state = { items: [] };
 
+// Selectedtypes helper for this page.
 function selectedTypes() {
   return typeOptions.filter((opt) => opt.checked).map((opt) => opt.value);
 }
 
+// Set DefaultTypes and keep the UI in sync.
 function setDefaultTypes() {
   if (!typeOptions.length) return;
   typeOptions.forEach((opt) => {
@@ -61,6 +67,7 @@ function setDefaultTypes() {
   });
 }
 
+// Applylegacydefaulttypes helper for this page.
 function applyLegacyDefaultTypes(desired) {
   if (!desired || !typeOptions.length) return false;
   if (desired.size !== LEGACY_DEFAULT_TYPES.size) return false;
@@ -73,11 +80,13 @@ function applyLegacyDefaultTypes(desired) {
   return true;
 }
 
+// Selectedtypeset helper for this page.
 function selectedTypeSet() {
   const selected = selectedTypes();
   return selected.length ? new Set(selected) : null;
 }
 
+// Filterdnritems helper for this page.
 function filterDnrItems(items) {
   const query = (dnrFilter && dnrFilter.value.trim().toLowerCase()) || "";
   const typeSet = selectedTypeSet();
@@ -89,6 +98,7 @@ function filterDnrItems(items) {
   });
 }
 
+// Render Dnr into the page.
 function renderDnr(items) {
   if (!dnrList) return;
   if (!items.length) {
@@ -120,6 +130,7 @@ function renderDnr(items) {
     .join("");
 }
 
+// Handle Details events.
 async function handleDetails(mangaId, title) {
   api("/api/events", {
     method: "POST",
@@ -132,6 +143,7 @@ async function handleDetails(mangaId, title) {
   }
 }
 
+// Load Dnr and update the UI.
 async function loadDnr() {
   const sort = dnrSort ? dnrSort.value : "chron";
   const data = await api(`/api/dnr?sort=${encodeURIComponent(sort)}`);
