@@ -8,8 +8,6 @@ CREATE TABLE IF NOT EXISTS users (
     preferred_themes TEXT,
     blacklist_genres TEXT,
     blacklist_themes TEXT,
-    signal_genres TEXT,
-    signal_themes TEXT,
     password_hash TEXT,
     is_admin INTEGER DEFAULT 0
 );
@@ -49,15 +47,6 @@ CREATE TABLE IF NOT EXISTS user_reading_list (
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (user_id, manga_id),
     FOREIGN KEY (user_id) REFERENCES users(username)
-);
-
-CREATE TABLE IF NOT EXISTS user_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id TEXT NOT NULL,
-    manga_id TEXT,
-    event_type TEXT NOT NULL,
-    event_value REAL,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS user_requests (

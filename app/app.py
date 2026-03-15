@@ -82,8 +82,6 @@ def init_db(app):
                 preferred_themes TEXT,
                 blacklist_genres TEXT,
                 blacklist_themes TEXT,
-                signal_genres TEXT,
-                signal_themes TEXT,
                 password_hash TEXT,
                 is_admin INTEGER DEFAULT 0
             )
@@ -141,21 +139,6 @@ def init_db(app):
                 PRIMARY KEY (user_id, manga_id)
             )
         """
-        )
-
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_events'")
-    if not cur.fetchone():
-        cur.execute(
-            """
-            CREATE TABLE user_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id TEXT NOT NULL,
-                manga_id TEXT,
-                event_type TEXT NOT NULL,
-                event_value REAL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-            """
         )
 
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='user_requests'")
@@ -308,14 +291,6 @@ def init_db(app):
     user_cols = {row[1] for row in cur.fetchall()}
     if "ui_prefs" not in user_cols:
         cur.execute("ALTER TABLE users ADD COLUMN ui_prefs TEXT")
-
-    # Add signal affinity columns if missing (existing DB)
-    cur.execute("PRAGMA table_info(users)")
-    user_cols = {row[1] for row in cur.fetchall()}
-    if "signal_genres" not in user_cols:
-        cur.execute("ALTER TABLE users ADD COLUMN signal_genres TEXT")
-    if "signal_themes" not in user_cols:
-        cur.execute("ALTER TABLE users ADD COLUMN signal_themes TEXT")
 
     # Add blacklist columns if missing (existing DB)
     cur.execute("PRAGMA table_info(users)")

@@ -82,11 +82,6 @@ def get_ui_prefs(username):
     return profile.get("ui_prefs", {})
 
 
-def set_signal_affinities(username, signal_genres, signal_themes):
-    """Persist signal affinities."""
-    profile_repo.set_signal_affinities(_normalize(username), signal_genres, signal_themes)
-
-
 def increment_blacklist_history(username, blacklist_genres, blacklist_themes):
     """Increment counters for blacklist history."""
     profile = profile_repo.get_profile(_normalize(username))

@@ -18,7 +18,7 @@ def get_profile(username):
     # Read and normalize profile payload for service/API layers.
     db = get_db()
     cur = db.execute(
-        "SELECT username, age, gender, language, ui_prefs, preferred_genres, preferred_themes, signal_genres, signal_themes, blacklist_genres, blacklist_themes FROM users WHERE lower(username) = lower(?)",
+        "SELECT username, age, gender, language, ui_prefs, preferred_genres, preferred_themes, blacklist_genres, blacklist_themes FROM users WHERE lower(username) = lower(?)",
         (username,),
     )
     row = cur.fetchone()
@@ -35,8 +35,6 @@ def get_profile(username):
         "ui_prefs": parse_dict(row["ui_prefs"]),
         "preferred_genres": parse_dict(row["preferred_genres"]),
         "preferred_themes": parse_dict(row["preferred_themes"]),
-        "signal_genres": parse_dict(row["signal_genres"]),
-        "signal_themes": parse_dict(row["signal_themes"]),
         "blacklist_genres": blacklist_genres,
         "blacklist_themes": blacklist_themes,
     }
@@ -70,10 +68,6 @@ def update_username(old_username, new_username):
     )
     db.execute(
         "UPDATE user_reading_list SET user_id = ? WHERE lower(user_id) = lower(?)",
-        (new_username, old_username),
-    )
-    db.execute(
-        "UPDATE user_events SET user_id = ? WHERE lower(user_id) = lower(?)",
         (new_username, old_username),
     )
     db.execute(
@@ -117,16 +111,6 @@ def set_ui_prefs(username, ui_prefs):
     # Persist UI flags/toggles as a serialized mapping.
     db = get_db()
     db.execute("UPDATE users SET ui_prefs = ? WHERE lower(username) = lower(?)", (str(ui_prefs), username))
-    db.commit()
-
-
-def set_signal_affinities(username, signal_genres, signal_themes):
-    # Persist normalized implicit-signal affinity vectors.
-    db = get_db()
-    db.execute(
-        "UPDATE users SET signal_genres = ?, signal_themes = ? WHERE lower(username) = lower(?)",
-        (str(signal_genres), str(signal_themes), username),
-    )
     db.commit()
 
 

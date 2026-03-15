@@ -224,14 +224,12 @@ Line comments:
 - L417-L426: `/reading-list/<id>` DELETE.
 - L429-L462: `/ratings` GET list rendering payload.
 - L464-L471: `/ratings/map` GET for quick map lookup.
-- L473-L493: `/ratings` POST upsert + event logging.
+- L473-L493: `/ratings` POST upsert.
 - L495-L504: `/ratings/<id>` DELETE.
 - L507-L535: `/manga/search` GET.
 - L537-L619: `/manga/browse` GET filtered browse endpoint.
 - L621-L653: `/manga/details` GET with mdex/MAL fallback logic.
-- L655-L672: `/events` POST click/details logging.
 - L674-L687: `/admin/switch-user` POST.
-- L689-L697: `/admin/model-snapshot` GET.
 - L699-L716: `/admin/ratings/export` GET CSV output.
 - L718-L741: `/admin/ratings/import` POST CSV ingestion.
 - L743-L794: `/recommendations` POST scored recommendation payload.
@@ -291,13 +289,12 @@ Line comments:
 - L38-L45: `clear_history` resets profile history and request caches.
 - L47-L62: `increment_preferences` adjusts preferred genre/theme counters.
 - L64-L73: UI preference get/set wrappers.
-- L75-L77: Signal affinity write wrapper.
-- L79-L98: Increments blacklist history counters.
-- L100-L121: Inserts request history snapshot row.
-- L123-L150: Reads cache and applies positive deltas.
-- L152-L170: Trims history over `max_requests` by removing oldest entries.
-- L172-L195: Upserts request cache aggregates.
-- L196-L210: Mirrors aggregate counts back to `users` table.
+- L75-L94: Increments blacklist history counters.
+- L96-L117: Inserts request history snapshot row.
+- L119-L146: Reads cache and applies positive deltas.
+- L148-L166: Trims history over `max_requests` by removing oldest entries.
+- L168-L191: Upserts request cache aggregates.
+- L192-L206: Mirrors aggregate counts back to `users` table.
 
 ## app/services/ratings.py
 What this file is:
@@ -359,25 +356,6 @@ Line comments:
 - L350-L360: Returns cached available genres/themes.
 - L363-L511: Main `recommend_for_user` pipeline (profile fetch, filters, exclusion, scoring, reasons, payload).
 
-## app/services/signals.py
-What this file is:
-- Service for interaction event logging and signal-affinity recomputation.
-
-What it does:
-- Records clicks/details/implicit feedback.
-- Computes normalized genre/theme signal vectors from ratings, DNR, reading list, and clicks.
-
-Line comments:
-- L1-L15: Imports and weighting constants.
-- L17-L26: DB path resolver helper.
-- L28-L39: `record_event` writes canonical event row.
-- L41-L100: `_fetch_manga_tags` bulk-fetches tags for mdex and MAL IDs.
-- L102-L108: Adds weighted contribution to a score map.
-- L110-L115: Normalizes weight maps by L1 norm.
-- L117-L207: `recompute_affinities` builds weighted tag scores from all interaction sources.
-- L209-L216: Event count summary helper.
-- L218-L237: Snapshot payload helper for admin debug view.
-
 ## app/services/__init__.py
 What this file is:
 - Package marker for service modules.
@@ -400,10 +378,8 @@ What it does:
 - Defines how much each signal contributes to match score.
 
 Line comments:
-- L1-L6: Requested/history/rated-title weight constants.
-- L8: Match vs internal blend weight.
-- L10-L11: Novelty blending weight.
-- L13-L17: Signal weights and personalization ramp thresholds.
+- L1-L8: Requested/history/rated-title weight constants.
+- L10: Match vs internal blend weight.
 
 ## recommender/filtering.py
 What this file is:
@@ -426,21 +402,21 @@ What this file is:
 - Orchestration wrapper selecting scoring version.
 
 What it does:
-- Picks v1/v2/v3 scoring path and forwards options.
+- Picks v1/v2/v3 scoring path and forwards the request context.
 
 Line comments:
 - L1-L2: Imports filter/scoring entrypoints.
-- L4-L24: Function signature with all scoring options.
-- L26-L37: Uses prefiltered dataframe when supplied, else runs filters.
-- L38-L70: Chooses v1 or v2 path by mode.
-- L71-L89: Defaults to v3 path and returns ranked results.
+- L4-L18: Function signature for the scoring entrypoint.
+- L20-L31: Uses prefiltered dataframe when supplied, else runs filters.
+- L32-L53: Chooses v1 or v2 path by mode.
+- L54-L70: Defaults to v3 path and returns ranked results.
 
 ## recommender/scoring.py
 What this file is:
 - Core ranking math for v1/v2/v3 recommendation strategies.
 
 What it does:
-- Computes match signals, internal score blend, novelty/diversity/reroll behavior.
+- Computes match signals, internal score blend, and earliest-year penalties.
 - Includes vectorized fast path for v3.
 
 Line comments:
@@ -730,4 +706,3 @@ Line comments:
 - L13-L22: User switch API call.
 - L24-L32: CSV import API call.
 - L34-L35: Button event bindings.
-

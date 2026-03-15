@@ -3,9 +3,6 @@
 const recommendationsEl = document.getElementById("recommendations");
 const recommendBtn = document.getElementById("recommend-btn");
 const optionsBtn = document.getElementById("options-btn");
-const diversifyToggle = document.getElementById("diversify-toggle");
-const noveltyToggle = document.getElementById("novelty-toggle");
-const personalizeToggle = document.getElementById("personalize-toggle");
 const infoBtn = document.getElementById("info-btn");
 const infoModal = document.getElementById("info-modal");
 const infoClose = document.getElementById("info-close");
@@ -96,15 +93,6 @@ async function loadUiPrefs() {
   try {
     const data = await api("/api/ui-prefs");
     const prefs = data.prefs || {};
-    if (diversifyToggle && prefs.recs_diversify !== undefined) {
-      diversifyToggle.checked = Boolean(prefs.recs_diversify);
-    }
-    if (noveltyToggle && prefs.recs_novelty !== undefined) {
-      noveltyToggle.checked = Boolean(prefs.recs_novelty);
-    }
-    if (personalizeToggle && prefs.recs_personalize !== undefined) {
-      personalizeToggle.checked = Boolean(prefs.recs_personalize);
-    }
     if (minYearInput && prefs.recs_min_year) {
       minYearInput.value = prefs.recs_min_year;
     }
@@ -284,9 +272,6 @@ async function fetchRecommendationsWithPrefs() {
         themes: state.themes,
         blacklist_genres: state.blacklistGenres,
         blacklist_themes: state.blacklistThemes,
-        diversify: diversifyToggle ? diversifyToggle.checked : true,
-        novelty: noveltyToggle ? noveltyToggle.checked : false,
-        personalize: personalizeToggle ? personalizeToggle.checked : true,
         min_year: minYearInput ? Number(minYearInput.value) : undefined,
         content_types: selectedTypes(),
       }),
@@ -304,10 +289,6 @@ async function fetchRecommendationsWithPrefs() {
 
 // Handle Details events.
 async function handleDetails(mangaId, title) {
-  api("/api/events", {
-    method: "POST",
-    body: JSON.stringify({ event_type: "clicked", manga_id: mangaId }),
-  }).catch(() => {});
   try {
     const data = await api(`/api/manga/details?id=${encodeURIComponent(mangaId)}`);
     const item = data.item || {};
@@ -343,21 +324,6 @@ if (addBlacklistThemeBtn) {
     addBlacklistTheme();
   });
 }
-if (diversifyToggle) {
-  diversifyToggle.addEventListener("change", () => {
-    saveUiPref("recs_diversify", diversifyToggle.checked);
-  });
-}
-if (noveltyToggle) {
-  noveltyToggle.addEventListener("change", () => {
-    saveUiPref("recs_novelty", noveltyToggle.checked);
-  });
-}
-if (personalizeToggle) {
-  personalizeToggle.addEventListener("change", () => {
-    saveUiPref("recs_personalize", personalizeToggle.checked);
-  });
-}
 if (optionsBtn && optionsModal) {
   optionsBtn.addEventListener("click", () => optionsModal.showModal());
 }
@@ -377,9 +343,6 @@ if (typesNone && typeOptions.length) {
 }
 if (optionsSave && optionsModal) {
   optionsSave.addEventListener("click", () => {
-    if (diversifyToggle) saveUiPref("recs_diversify", diversifyToggle.checked);
-    if (noveltyToggle) saveUiPref("recs_novelty", noveltyToggle.checked);
-    if (personalizeToggle) saveUiPref("recs_personalize", personalizeToggle.checked);
     if (minYearInput) saveUiPref("recs_min_year", Number(minYearInput.value) || 2007);
     if (typeOptions.length) {
       const types = selectedTypes();

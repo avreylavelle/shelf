@@ -204,10 +204,6 @@ function renderRatings() {
 
 // Handle Details events.
 async function handleDetails(mangaId, title) {
-  api("/api/events", {
-    method: "POST",
-    body: JSON.stringify({ event_type: "details", manga_id: mangaId }),
-  }).catch(() => {});
   const data = await api(`/api/manga/details?id=${encodeURIComponent(mangaId)}`);
   const item = data.item || {};
   if (window.openDetailsModal && window.renderDetailsHTML) {

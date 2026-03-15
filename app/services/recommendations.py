@@ -172,36 +172,6 @@ def _explain_row(row, current_genres, current_themes, profile, genre_best, theme
     return reasons[:3]
 
 
-def _diversify_reasons(results, max_title_reasons=2):
-    """Handle diversify reasons for this module."""
-    if not results:
-        return results
-    used_titles = {}
-    title_reason_count = 0
-    replacements = [
-        "Matches your favorites",
-        "Aligns with your highly rated history",
-        "Fits your past ratings",
-    ]
-    alt_idx = 0
-    for item in results:
-        reasons = item.get("reasons") or []
-        new_reasons = []
-        for reason in reasons:
-            if reason.startswith("Similar to "):
-                title = reason[len("Similar to ") :].split(" (rated", 1)[0].strip()
-                seen = used_titles.get(title, 0)
-                if title_reason_count >= max_title_reasons or seen >= 1:
-                    reason = replacements[alt_idx % len(replacements)]
-                    alt_idx += 1
-                else:
-                    used_titles[title] = seen + 1
-                    title_reason_count += 1
-            new_reasons.append(reason)
-        item["reasons"] = new_reasons
-    return results
-
-
 def _resolve_db_path(db_path):
     """Resolve db path into a canonical form."""
     if db_path:
@@ -375,7 +345,18 @@ def get_available_options(db_path=None):
     return genres, themes
 
 
-def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=20, mode=None, reroll=False, seed=None, diversify=True, novelty=False, personalize=True, earliest_year=None, content_types=None, blacklist_genres=None, blacklist_themes=None):
+def recommend_for_user(
+    db_path,
+    user_id,
+    current_genres,
+    current_themes,
+    limit=20,
+    mode=None,
+    earliest_year=None,
+    content_types=None,
+    blacklist_genres=None,
+    blacklist_themes=None,
+):
     """Compute recommendation results for the requested user context."""
     db_path = _resolve_db_path(db_path)
     mode = (mode or os.environ.get("RECOMMENDER_MODE", "v3")).lower()
@@ -485,11 +466,6 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
         read_manga,
         top_n=limit,
         mode=mode,
-        reroll=reroll,
-        seed=seed,
-        diversify=diversify,
-        novelty=novelty,
-        personalize=personalize,
         earliest_year=earliest_year,
         content_types=content_types,
         blacklist_genres=combined_blacklist_genres,
@@ -523,5 +499,4 @@ def recommend_for_user(db_path, user_id, current_genres, current_themes, limit=2
                 "reasons": reasons,
             }
         )
-    results = _diversify_reasons(results)
     return results, used_current

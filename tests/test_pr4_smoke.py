@@ -1,6 +1,14 @@
 import sqlite3
 
 
+def _clear_recommendation_caches():
+    import app.services.recommendations as rec_service
+
+    rec_service._MANGA_CACHE.clear()
+    rec_service._OPTIONS_CACHE.clear()
+    rec_service._STATS_NAME_CACHE.clear()
+
+
 def _insert_user(conn, username, is_admin=0):
     conn.execute(
         """
@@ -12,11 +20,9 @@ def _insert_user(conn, username, is_admin=0):
             preferred_themes,
             blacklist_genres,
             blacklist_themes,
-            signal_genres,
-            signal_themes,
             is_admin
         )
-        VALUES (?, 'English', '{}', '{}', '{}', '{}', '{}', '{}', '{}', ?)
+        VALUES (?, 'English', '{}', '{}', '{}', '{}', '{}', ?)
         """,
         (username, 1 if is_admin else 0),
     )
@@ -152,15 +158,14 @@ def test_admin_gate_behavior(app_client):
 
     with client.session_transaction() as session_state:
         session_state["user_id"] = "regular_user"
-    response = client.get("/shelf/api/admin/model-snapshot")
+    response = client.get("/shelf/api/admin/ratings/export")
     assert response.status_code == 403
 
     with client.session_transaction() as session_state:
         session_state["user_id"] = "admin_user"
-    response = client.get("/shelf/api/admin/model-snapshot")
+    response = client.get("/shelf/api/admin/ratings/export")
     assert response.status_code == 200
-    payload = response.get_json()
-    assert "snapshot" in payload
+    assert response.mimetype == "text/csv"
 
 
 def test_rename_and_delete_consistency(app_client):
@@ -188,12 +193,6 @@ def test_rename_and_delete_consistency(app_client):
         )
         conn.execute(
             """
-            INSERT INTO user_events (user_id, manga_id, event_type, event_value)
-            VALUES ('olduser', 'mdx-action', 'clicked', 1.0)
-            """
-        )
-        conn.execute(
-            """
             INSERT INTO user_requests (user_id, genres, themes, blacklist_genres, blacklist_themes)
             VALUES ('olduser', '[]', '[]', '[]', '[]')
             """
@@ -217,7 +216,7 @@ def test_rename_and_delete_consistency(app_client):
     with sqlite3.connect(db_path) as conn:
         assert _count_rows(conn, "users", "username", "olduser") == 0
         assert _count_rows(conn, "users", "username", "newuser") == 1
-        for table in ("user_ratings", "user_dnr", "user_reading_list", "user_events", "user_requests", "user_request_cache"):
+        for table in ("user_ratings", "user_dnr", "user_reading_list", "user_requests", "user_request_cache"):
             assert _count_rows(conn, table, "user_id", "olduser") == 0
             assert _count_rows(conn, table, "user_id", "newuser") == 1
 
@@ -228,7 +227,7 @@ def test_rename_and_delete_consistency(app_client):
 
     with sqlite3.connect(db_path) as conn:
         assert _count_rows(conn, "users", "username", "newuser") == 0
-        for table in ("user_ratings", "user_dnr", "user_reading_list", "user_events", "user_requests", "user_request_cache"):
+        for table in ("user_ratings", "user_dnr", "user_reading_list", "user_requests", "user_request_cache"):
             assert _count_rows(conn, table, "user_id", "newuser") == 0
 
 
@@ -239,6 +238,7 @@ def test_recommendations_endpoint_basic_behavior(app_client):
         _insert_user(conn, "reader", is_admin=0)
         _seed_minimal_catalog(conn)
         conn.commit()
+    _clear_recommendation_caches()
 
     with client.session_transaction() as session_state:
         session_state["user_id"] = "reader"
@@ -262,6 +262,7 @@ def test_browse_route_reuses_recommendation_cache(app_client, monkeypatch):
         _insert_user(conn, "browser", is_admin=0)
         _seed_minimal_catalog(conn)
         conn.commit()
+    _clear_recommendation_caches()
 
     with client.session_transaction() as session_state:
         session_state["user_id"] = "browser"

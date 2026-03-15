@@ -14,7 +14,6 @@ from utils.parsing import parse_list
 from app.services import profile as profile_service
 from app.services import dnr as dnr_service
 from app.services import reading_list as reading_list_service
-from app.services import signals as signals_service
 from app.repos import manga as manga_repo
 from app.repos import users as users_repo
 
@@ -370,8 +369,6 @@ def add_dnr():
     error = dnr_service.add_item(user_id, manga_id)
     if error:
         return jsonify({"error": error}), 400
-    signals_service.record_event(user_id, "dnr", manga_id)
-    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -384,7 +381,6 @@ def remove_dnr(manga_id):
     error = dnr_service.remove_item(user_id, manga_id)
     if error:
         return jsonify({"error": error}), 400
-    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 @api_bp.get("/reading-list")
@@ -430,8 +426,6 @@ def add_reading_list():
     error = reading_list_service.add_item(user_id, manga_id, status=status)
     if error:
         return jsonify({"error": error}), 400
-    signals_service.record_event(user_id, "reading_list", manga_id)
-    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -446,7 +440,6 @@ def update_reading_list_status():
     error = reading_list_service.update_status(user_id, manga_id, status)
     if error:
         return jsonify({"error": error}), 400
-    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -459,7 +452,6 @@ def remove_reading_list(manga_id):
     error = reading_list_service.remove_item(user_id, manga_id)
     if error:
         return jsonify({"error": error}), 400
-    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -522,12 +514,6 @@ def upsert_rating():
     error = ratings_service.set_rating(user_id, manga_id, rating, recommended_by_us, finished_reading)
     if error:
         return jsonify({"error": error}), 400
-
-    if rating is not None:
-        signals_service.record_event(user_id, "rated", manga_id, rating)
-    if finished_reading:
-        signals_service.record_event(user_id, "finished", manga_id)
-    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -540,7 +526,6 @@ def delete_rating(manga_id):
     error = ratings_service.delete_rating(user_id, manga_id)
     if error:
         return jsonify({"error": error}), 400
-    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True})
 
 
@@ -697,26 +682,6 @@ def manga_details():
     return jsonify({"item": item})
 
 
-@api_bp.post("/events")
-@login_required
-def record_event():
-    """Record event in persistent storage."""
-    user_id = session["user_id"]
-    data = request.get_json(silent=True) or {}
-    event_type = (data.get("event_type") or "").strip().lower()
-    manga_id = (data.get("manga_id") or "").strip()
-    value = data.get("value")
-
-    allowed = {"clicked", "details"}
-    if event_type not in allowed:
-        return jsonify({"error": "invalid event_type"}), 400
-
-    signals_service.record_event(user_id, event_type, manga_id or None, value)
-    if event_type in {"clicked", "details"}:
-        signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
-    return jsonify({"ok": True})
-
-
 # Admin endpoints (restricted via users.is_admin role)
 @api_bp.post("/admin/switch-user")
 @admin_required
@@ -731,17 +696,6 @@ def admin_switch_user():
         return jsonify({"error": "user not found"}), 404
     session["user_id"] = username
     return jsonify({"ok": True, "user": username})
-
-
-@api_bp.get("/admin/model-snapshot")
-@admin_required
-def admin_model_snapshot():
-    """Handle admin model snapshot for this module."""
-    username = (request.args.get("user") or "").strip()
-    if not username:
-        username = session["user_id"]
-    snapshot = signals_service.get_snapshot(username)
-    return jsonify({"snapshot": snapshot})
 
 
 @api_bp.get("/admin/ratings/export")
@@ -785,8 +739,6 @@ def admin_import_ratings():
         if error:
             return jsonify({"error": error}), 400
         count += 1
-
-    signals_service.recompute_affinities(user_id, current_app.config["DATABASE"])
     return jsonify({"ok": True, "count": count})
 
 
@@ -801,9 +753,6 @@ def recommendations_with_prefs():
     blacklist_genres = _parse_list(data.get("blacklist_genres"))
     blacklist_themes = _parse_list(data.get("blacklist_themes"))
     mode = (data.get("mode") or "").strip() or None
-    diversify = _parse_bool(data.get("diversify"), True)
-    novelty = _parse_bool(data.get("novelty"), False)
-    personalize = _parse_bool(data.get("personalize"), True)
     min_year = data.get("min_year")
     try:
         min_year = int(min_year) if min_year is not None else None
@@ -830,9 +779,6 @@ def recommendations_with_prefs():
         current_themes,
         limit=20,
         mode=mode,
-        diversify=diversify,
-        novelty=novelty,
-        personalize=personalize,
         earliest_year=min_year,
         content_types=content_types,
         blacklist_genres=blacklist_genres,

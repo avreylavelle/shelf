@@ -35,11 +35,11 @@ def create_user(username, password_hash, age=None, gender=None, language="Englis
     db = get_db()
     db.execute(
         """
-        INSERT INTO users (username, age, gender, language, ui_prefs, preferred_genres, preferred_themes, blacklist_genres, blacklist_themes, signal_genres, signal_themes, password_hash, is_admin)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (username, age, gender, language, ui_prefs, preferred_genres, preferred_themes, blacklist_genres, blacklist_themes, password_hash, is_admin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         # Initialize map-like columns as "{}" so parse helpers return dicts consistently.
-        (username, age, gender, language, ui_prefs, "{}", "{}", "{}", "{}", "{}", "{}", password_hash, 1 if is_admin else 0),
+        (username, age, gender, language, ui_prefs, "{}", "{}", "{}", "{}", password_hash, 1 if is_admin else 0),
     )
     db.commit()
 
@@ -67,7 +67,6 @@ def delete_user(username):
     db.execute("DELETE FROM user_ratings WHERE lower(user_id) = lower(?)", (username,))
     db.execute("DELETE FROM user_dnr WHERE lower(user_id) = lower(?)", (username,))
     db.execute("DELETE FROM user_reading_list WHERE lower(user_id) = lower(?)", (username,))
-    db.execute("DELETE FROM user_events WHERE lower(user_id) = lower(?)", (username,))
     db.execute("DELETE FROM user_requests WHERE lower(user_id) = lower(?)", (username,))
     db.execute("DELETE FROM user_request_cache WHERE lower(user_id) = lower(?)", (username,))
     db.execute("DELETE FROM users WHERE lower(username) = lower(?)", (username,))

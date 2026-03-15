@@ -13,28 +13,16 @@ The project currently ships with:
 - **Auth + profiles** (age, gender, language)
 - **Dashboard** with quick links
 - **Recommendations** with:
-  - Reroll
-  - Diversity control
-  - “Include less popular” toggle
+  - Content-type filter
+  - Earliest-year preference
   - Explainability badges
-  - Personalized mode toggle
 - **Ratings** CRUD + “recommended by us” + “finished reading”
 - **Reading List** with status (Plan to Read / In Progress)
 - **Do Not Recommend (DNR)** list
 - **Admin tools** (user switch + CSV import/export)
 
-### Personalization (Phase 2)
-Signals are logged and converted into per‑user affinities:
-- Rated titles
-- Finished reading
-- Clicked details
-- Reading list
-- DNR
-
-These affinities lightly bias scoring when “Personalized” is enabled (with guardrails).
-
 ## Recommender Modes
-- **v3 (Balanced)**: default. Original scoring blend + improved normalization and signal affinities.
+- **v3 (Balanced)**: default. Original scoring blend + improved normalization.
 - **v2 (Relative)**: min‑max normalizes match/internal within the current pool.
 - **v1 (Legacy)**: original baseline scoring.
 
@@ -44,7 +32,6 @@ The web UI currently defaults to **v3**.
 - Match score (requested genres/themes, history, rating affinities)
 - Internal score (dataset score) scaled to 0–1
 - Combined score (70% match / 30% internal)
-- Optional diversity & novelty adjustments
 
 ## Project Structure
 ```
